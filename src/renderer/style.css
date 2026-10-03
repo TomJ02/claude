@@ -1,0 +1,89 @@
+/* La fenêtre est transparente et couvre tout l'écran : rien ne doit avoir de fond. */
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.hover {
+  cursor: grab;
+}
+body.dragging {
+  cursor: grabbing;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* la souris est gérée par input.js (lancer de rayon) */
+}
+
+/* Le canvas WebGL (taille du singe), déplacé par transform */
+.pet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.pet canvas {
+  display: block;
+}
+
+/* Ombre au sol */
+.shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+  transform-origin: 50% 50%;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* Bulle d'émotion : "!", "?", "♥"... */
+.emote {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.emote span {
+  display: block;
+  min-width: 1.2em;
+  padding: 0.12em 0.32em;
+  border-radius: 1em;
+  background: #fffdf7;
+  border: 2px solid #2a1910;
+  color: #d0452f;
+  font:
+    800 1em/1.1 'Segoe UI',
+    system-ui,
+    sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Z z z */
+.zzz {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  color: #fdfdff;
+  font:
+    800 20px 'Segoe UI',
+    system-ui,
+    sans-serif;
+  text-shadow:
+    0 0 2px #2b3a67,
+    1px 1px 0 #2b3a67,
+    -1px -1px 0 #2b3a67;
+  will-change: transform, opacity;
+}

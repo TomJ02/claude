@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+# Modèle personnalisé local (à ajouter volontairement si vous voulez le versionner)
+assets/models/*.glb

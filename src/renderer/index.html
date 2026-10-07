@@ -2,25 +2,12 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <!-- Contenu 100 % local. 'unsafe-inline' n'est nécessaire que pour l'importmap ci-dessous. -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:"
-    />
     <title>Singe de bureau</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Permet d'écrire `import ... from 'three'` sans outil de compilation. -->
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "../../node_modules/three/build/three.module.js",
-          "three/addons/": "../../node_modules/three/examples/jsm/"
-        }
-      }
-    </script>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="renderer.js"></script>
+    <!-- app.js est fabriqué par `npm run web` (scripts/build-web.mjs) à partir de renderer.js -->
+    <script type="module" src="app.js"></script>
   </body>
 </html>

@@ -2,16 +2,19 @@
 //  generate-icons.js : dessine la tête de singe de l'icône (PNG + ICO) sans
 //  aucune dépendance. Lancer avec : npm run icons
 //
-//  Produit dans assets/ :
-//    icon.png       1024 px (icône de l'application / macOS)
-//    icon.ico       16 → 256 px (exécutable et zone de notification Windows)
-//    tray.png       18 px, tray@2x.png 36 px (zone de notification macOS / Linux)
+//  Produit :
+//    assets/icon.png            1024 px (image source)
+//    src-tauri/icons/           icônes de l'exécutable et de la zone de
+//                               notification : 32x32.png, 128x128.png,
+//                               128x128@2x.png, icon.png, icon.ico (Windows),
+//                               icon.icns (macOS)
 // =============================================================================
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
 
 const OUT = path.join(__dirname, '..', 'assets');
+const TAURI = path.join(__dirname, '..', 'src-tauri', 'icons');
 
 const COL = {
   fur: [139, 90, 52],
@@ -180,9 +183,34 @@ function ico(sizes) {
   return Buffer.concat([header, ...images]);
 }
 
+// --- Encodage ICNS (macOS) : images PNG de 128 à 1024 px ---
+function icns() {
+  const entries = [
+    ['ic07', 128],
+    ['ic08', 256],
+    ['ic09', 512],
+    ['ic10', 1024],
+  ].map(([type, size]) => {
+    const data = png(size);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii');
+    head.writeUInt32BE(data.length + 8, 4);
+    return Buffer.concat([head, data]);
+  });
+  const body = Buffer.concat(entries);
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 'ascii');
+  head.writeUInt32BE(body.length + 8, 4);
+  return Buffer.concat([head, body]);
+}
+
 fs.mkdirSync(OUT, { recursive: true });
+fs.mkdirSync(TAURI, { recursive: true });
 fs.writeFileSync(path.join(OUT, 'icon.png'), png(1024));
-fs.writeFileSync(path.join(OUT, 'icon.ico'), ico([16, 20, 24, 32, 40, 48, 64, 128, 256]));
-fs.writeFileSync(path.join(OUT, 'tray.png'), png(18));
-fs.writeFileSync(path.join(OUT, 'tray@2x.png'), png(36));
-console.log('Icônes générées dans', OUT);
+fs.writeFileSync(path.join(TAURI, '32x32.png'), png(32));
+fs.writeFileSync(path.join(TAURI, '128x128.png'), png(128));
+fs.writeFileSync(path.join(TAURI, '128x128@2x.png'), png(256));
+fs.writeFileSync(path.join(TAURI, 'icon.png'), png(512));
+fs.writeFileSync(path.join(TAURI, 'icon.ico'), ico([16, 20, 24, 32, 40, 48, 64, 128, 256]));
+fs.writeFileSync(path.join(TAURI, 'icon.icns'), icns());
+console.log('Icônes générées dans', OUT, 'et', TAURI);

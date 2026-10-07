@@ -2,9 +2,9 @@
 //  gltfMonkey.js : utilise un modèle .glb (Blender, Mixamo, Sketchfab...) à la
 //  place du singe procédural. Même interface que monkey.js.
 //
-//  Le fichier est cherché (par le processus principal) à ces emplacements :
-//    1. <dossier de données de l'appli>/monkey.glb   (menu > "Dossier du modèle 3D…")
-//    2. assets/models/monkey.glb                      (dans le projet)
+//  Le fichier est cherché à ces emplacements :
+//    1. <dossier de données de l'appli>/monkey.glb   (menu > "Modèle 3D et réglages")
+//    2. assets/models/monkey.glb  (dans le projet : intégré à l'exe à la compilation)
 //
 //  Le modèle est automatiquement mis à l'échelle (pieds au sol) et doit
 //  regarder vers l'avant (+Z, sinon réglez CONFIG.glb.rotationY). Les

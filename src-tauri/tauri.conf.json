@@ -1,0 +1,39 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Singe de bureau",
+  "version": "2.0.0",
+  "identifier": "com.singedebureau.app",
+  "build": {
+    "frontendDist": "../dist-web",
+    "beforeDevCommand": "npm run web -- --dev",
+    "beforeBuildCommand": "npm run web"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:",
+        "connect-src": "'self' ipc: http://ipc.localhost data: blob: petmodel: http://petmodel.localhost"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "category": "Entertainment",
+    "shortDescription": "Un petit singe 3D qui vit sur votre bureau",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["French"],
+        "compression": "lzma"
+      }
+    }
+  }
+}

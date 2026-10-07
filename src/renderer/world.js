@@ -5,6 +5,10 @@
 //  l'écran courant (la fenêtre transparente couvre exactement cet écran).
 //  L'axe Y va vers le BAS (comme à l'écran).
 //
+//  Pour passer d'un écran à l'autre (qui peuvent avoir des échelles différentes,
+//  ex. 100 % et 150 %), on repasse par les pixels physiques du bureau :
+//  global = origine de l'écran + local × échelle.
+//
 //  Surfaces sur lesquelles il peut se tenir :
 //   - le sol   : le haut de la barre des tâches (bas de la "zone de travail")
 //   - les rebords : le bord supérieur des fenêtres ouvertes (bonus, Windows),
@@ -17,6 +21,8 @@ export const FLOOR = Object.freeze({ kind: 'floor' });
 export class World {
   constructor() {
     this.displayId = null;
+    this.origin = { x: 0, y: 0 }; // position de l'écran sur le bureau (pixels physiques)
+    this.scale = 1; // échelle de l'écran (1 = 100 %, 1.5 = 150 %...)
     this.bounds = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
     this.workArea = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
     this.neighbors = { left: [], right: [] };
@@ -26,9 +32,21 @@ export class World {
   /** Informations envoyées par le processus principal (voir main.js > worldFor). */
   setDisplay(info) {
     this.displayId = info.displayId;
-    this.bounds = { ...info.bounds };
+    this.origin = { ...info.origin };
+    this.scale = info.scale;
+    this.bounds = { x: 0, y: 0, width: info.size.width, height: info.size.height };
     this.workArea = { ...info.workArea };
     this.neighbors = info.neighbors ?? { left: [], right: [] };
+  }
+
+  /** Point local (px CSS) → point global (pixels physiques du bureau). */
+  toGlobal(x, y) {
+    return { x: this.origin.x + x * this.scale, y: this.origin.y + y * this.scale };
+  }
+
+  /** Point global (pixels physiques) → point local de cet écran (px CSS). */
+  fromGlobal(gx, gy) {
+    return { x: (gx - this.origin.x) / this.scale, y: (gy - this.origin.y) / this.scale };
   }
 
   get width() {

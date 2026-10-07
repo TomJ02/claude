@@ -3,9 +3,10 @@
 //
 //  Clics "traversants" : la fenêtre ignore la souris (les clics vont aux
 //  fenêtres en dessous) SAUF quand le curseur est sur le singe ou sur un objet
-//  (caca à nettoyer, banane à attraper). Electron nous
-//  transmet quand même les mouvements de souris (option `forward`), ce qui
-//  permet de détecter le survol par un lancer de rayon sur le modèle 3D.
+//  (caca à nettoyer, banane à attraper). Le programme principal (Rust) nous
+//  envoie la position du curseur ~60 fois/s même quand la fenêtre laisse
+//  passer les clics (onCursor) : on détecte ainsi le survol par un lancer de
+//  rayon sur le modèle 3D.
 // =============================================================================
 
 const HOVER_RECHECK = 0.1; // s : re-test du survol quand c'est le singe qui bouge
@@ -28,6 +29,7 @@ export class Input {
     this.dragging = false;
     this.samples = []; // positions récentes (vitesse du lancer)
     this.pet = []; // distances parcourues sur le singe (caresses)
+    this.lastPolled = null; // dernière position reçue du programme principal
     this.recheck = 0;
     this.lastEdgeRequest = 0;
 
@@ -42,9 +44,10 @@ export class Input {
     });
   }
 
+  // Vrais événements souris : seulement quand la fenêtre ne laisse pas passer
+  // les clics (curseur sur le singe, ou pendant un glisser).
   onMove(e) {
     const p = { x: e.clientX, y: e.clientY };
-    const prev = this.cursor;
     this.cursor = p;
 
     if (this.press) {
@@ -65,7 +68,20 @@ export class Input {
       }
       return;
     }
+    this.updateHover();
+  }
 
+  /** Position du curseur envoyée par le programme principal (à tout moment). */
+  onCursor({ x, y, inside }) {
+    if (this.press) return; // pendant un appui, les vrais événements suffisent
+    if (!inside) {
+      this.lastPolled = null;
+      return this.onLeave();
+    }
+    const p = { x, y };
+    const prev = this.lastPolled;
+    this.lastPolled = p;
+    this.cursor = p;
     const wasHovering = this.hovering;
     this.updateHover();
     this.brain.onCursor(p);
@@ -225,14 +241,11 @@ export class Input {
     this.setIgnore(true);
   }
 
-  /** La fenêtre a changé d'écran : on décale les positions mémorisées. */
-  shift({ dx, dy }) {
-    if (!dx && !dy) return;
-    for (const s of this.samples) {
-      s.x += dx;
-      s.y += dy;
-    }
-    if (this.cursor) this.cursor = { x: this.cursor.x + dx, y: this.cursor.y + dy };
+  /** La fenêtre a changé d'écran : on convertit les positions mémorisées. */
+  shift(convert) {
+    for (const s of this.samples) Object.assign(s, convert(s));
+    if (this.cursor) this.cursor = convert(this.cursor);
+    this.lastPolled = null;
   }
 
   velocity() {
@@ -254,6 +267,6 @@ export class Input {
     const now = performance.now();
     if (now - this.lastEdgeRequest < 250) return;
     this.lastEdgeRequest = now;
-    this.api.moveToDisplayAt(w.bounds.x + p.x, w.bounds.y + p.y);
+    this.api.moveToDisplayAt(p.x, p.y);
   }
 }

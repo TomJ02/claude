@@ -6,3 +6,8 @@ out/
 Thumbs.db
 # Modèle personnalisé local (à ajouter volontairement si vous voulez le versionner)
 assets/models/*.glb
+# Compilation
+dist-web/
+src-tauri/target/
+src-tauri/gen/
+ci-out/

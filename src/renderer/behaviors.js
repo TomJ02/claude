@@ -381,8 +381,7 @@ const STATES = {
   // En train de passer sur l'écran voisin (on attend la réponse du processus principal).
   transfer: {
     enter(b, d) {
-      const w = b.world;
-      b.api.moveToDisplayAt(w.bounds.x + b.x + d.side * 4, w.bounds.y + b.y - b.size * 0.5);
+      b.api.moveToDisplayAt(b.x + d.side * 4, b.y - b.size * 0.5);
     },
     update(b, dt, d) {
       if (b.t > 1.5) {
@@ -924,27 +923,25 @@ export class Brain {
     if (wasAway !== this.userAway()) this.wake();
   }
 
-  /** Nouvelles infos d'écran. Retourne le décalage appliqué aux coordonnées. */
+  /**
+   * Nouvelles infos d'écran (la fenêtre a peut-être changé d'écran).
+   * Retourne la fonction qui convertit un point de l'ancien écran vers le nouveau.
+   */
   onWorld(info) {
     const w = this.world;
     const first = w.displayId == null;
-    const old = { ...w.bounds };
+    const old = { origin: { ...w.origin }, scale: w.scale };
     const changedDisplay = w.displayId !== info.displayId;
     w.setDisplay(info);
+    const convert = (p) => w.fromGlobal(old.origin.x + p.x * old.scale, old.origin.y + p.y * old.scale);
     if (first) {
       this.spawn();
-      return { dx: 0, dy: 0 };
+      return convert;
     }
-    const dx = old.x - info.bounds.x;
-    const dy = old.y - info.bounds.y;
-    this.x += dx;
-    this.y += dy;
-    if (this.grab) {
-      this.grab.cursor.x += dx;
-      this.grab.cursor.y += dy;
-    }
+    ({ x: this.x, y: this.y } = convert(this));
+    if (this.grab) this.grab.cursor = convert(this.grab.cursor);
     if (changedDisplay) w.setLedges([]);
-    if (this.state === 'dragged') return { dx, dy };
+    if (this.state === 'dragged') return convert;
 
     if (this.state === 'transfer') {
       const side = this.d.side;
@@ -963,7 +960,7 @@ export class Brain {
       if (this.support) this.checkSupport();
     }
     this.wake();
-    return { dx, dy };
+    return convert;
   }
 
   onLedges(list) {

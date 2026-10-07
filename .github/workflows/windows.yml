@@ -1,0 +1,120 @@
+# Fabrique l'exécutable Windows (portable + installateur), le teste "en vrai"
+# sur une machine Windows, et le publie dans les Releases du dépôt.
+#
+#   - à chaque push : compilation + auto-test + fichiers téléchargeables dans
+#     l'onglet Actions (artefact "Singe-de-bureau-windows") ;
+#   - sur la branche par défaut ou un tag v* : (re)publication de la release
+#     v<version> avec Singe-de-bureau.exe et l'installateur.
+name: Exécutable Windows
+
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write # publier la release
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Compilation (exe + installateur NSIS)
+        run: npm run build
+
+      - name: Rassembler les fichiers
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item src-tauri/target/release/singe-de-bureau.exe dist/Singe-de-bureau.exe
+          $setup = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          Copy-Item $setup.FullName "dist/Singe-de-bureau-$version-installation.exe"
+          "VERSION=$version" >> $env:GITHUB_ENV
+          Get-ChildItem dist | ForEach-Object { '{0} : {1:N1} Mo' -f $_.Name, ($_.Length / 1MB) }
+
+      - name: Auto-test (vrai bureau Windows)
+        shell: pwsh
+        env:
+          # Les machines d'intégration continue n'ont pas de carte graphique :
+          # on autorise le rendu WebGL logiciel (inutile sur un vrai PC).
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --enable-unsafe-swiftshader
+        run: ./scripts/ci/selftest.ps1 -Exe dist/Singe-de-bureau.exe -Out ci-out
+
+      - name: Consommation au repos (CPU, mémoire)
+        shell: pwsh
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --enable-unsafe-swiftshader
+        run: ./scripts/ci/measure.ps1 -Exe dist/Singe-de-bureau.exe -Seconds 40
+
+      - name: Installation silencieuse
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist/*-installation.exe | Select-Object -First 1
+          $p = Start-Process $setup.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "l'installateur a échoué (code $($p.ExitCode))" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Singe de bureau'
+          $exe = Get-ChildItem $dir -Filter *.exe | Where-Object Name -notmatch 'uninstall' | Select-Object -First 1
+          if (-not $exe) { throw "exécutable introuvable dans $dir" }
+          "Installé : $($exe.FullName)"
+          $un = Join-Path $dir 'uninstall.exe'
+          if (Test-Path $un) { Start-Process $un -ArgumentList '/S' -Wait }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Singe-de-bureau-windows
+          path: dist/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic
+          path: ci-out/*
+          if-no-files-found: ignore
+
+      - name: Publier la release
+        if: github.event_name == 'push' && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/tags/v'))
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$VERSION"
+          exe=$(du -m dist/Singe-de-bureau.exe | cut -f1)
+          setup=$(du -m dist/*-installation.exe | cut -f1)
+          cat > notes.md <<EOF
+          Un petit singe 3D qui vit sur votre bureau Windows 10/11.
+
+          **Le plus simple : téléchargez \`Singe-de-bureau.exe\`** (~${exe} Mo) et double-cliquez dessus. Rien à installer : il utilise le moteur web déjà présent dans Windows (WebView2).
+          Il se range dans la zone de notification (près de l'horloge) : clic sur l'icône pour le menu.
+
+          Ou bien l'installateur \`Singe-de-bureau-${VERSION}-installation.exe\` (~${setup} Mo) : raccourci dans le menu Démarrer, désinstallation propre.
+
+          > Windows SmartScreen peut afficher « Windows a protégé votre ordinateur » (exécutable non signé) : *Informations complémentaires* puis *Exécuter quand même*.
+
+          Compilé et testé automatiquement depuis le commit ${GITHUB_SHA::7}.
+          EOF
+          # Une seule release par version, toujours la dernière compilation
+          gh release delete "$tag" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$tag" dist/* --target "$GITHUB_SHA" --title "Singe de bureau $VERSION" --notes-file notes.md --latest

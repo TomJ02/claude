@@ -13,8 +13,9 @@ import { Input } from './input.js';
 import { Effects } from './effects.js';
 import { Items } from './items.js';
 import { renderSprites } from './sprites.js';
+import { petAPI } from './platform.js';
 
-const api = window.petAPI;
+const api = petAPI;
 const app = document.getElementById('app');
 
 const stage = new Stage(app, CONFIG);
@@ -65,11 +66,27 @@ function createLoop(step) {
   let timer = 0;
   let last = 0;
 
+  let target = 60; // cadence voulue par la dernière image
+
   function tick(now) {
     raf = 0;
+    // Écrans 120/144 Hz (ou moteur sans synchronisation) : on ne dépasse pas
+    // la cadence voulue, on attend simplement la prochaine échéance.
+    const gap = 1000 / target - 2;
+    if (now - last < gap) {
+      timer = setTimeout(
+        () => {
+          timer = 0;
+          raf = requestAnimationFrame(tick);
+        },
+        gap - (now - last),
+      );
+      return;
+    }
     const dt = Math.min(0.25, Math.max(0, (now - last) / 1000));
     last = now;
-    schedule(step(dt));
+    target = step(dt);
+    schedule(target);
   }
 
   function schedule(fps) {
@@ -90,11 +107,12 @@ function createLoop(step) {
     // Relance la boucle (ou avance la prochaine image) après un événement.
     wake() {
       if (raf) return;
+      target = 60; // un événement : on répond dès l'image suivante
       if (timer) {
         clearTimeout(timer);
         timer = 0;
       } else {
-        last = performance.now();
+        last = performance.now() - 17; // la boucle était arrêtée
       }
       raf = requestAnimationFrame(tick);
     },
@@ -135,6 +153,33 @@ async function loadCustomModel(url) {
   }
 }
 
+// Réglages personnels sans recompiler : le fichier config.json du dossier de
+// données de l'appli est fusionné dans CONFIG (voir README).
+function applyUserConfig(user) {
+  if (!user || typeof user !== 'object') return;
+  merge(CONFIG, user);
+  // Couleurs / style : on reconstruit le singe et les images des objets.
+  if (user.colors || user.render) {
+    const monkey = new ProceduralMonkey(CONFIG);
+    stage.setMonkey(monkey);
+    brain.setMonkey(monkey);
+    try {
+      items.setSprites(renderSprites(CONFIG));
+    } catch {
+      /* on garde les images actuelles */
+    }
+  }
+  console.info('[singe] réglages personnels chargés');
+}
+
+function merge(target, src) {
+  for (const [k, v] of Object.entries(src)) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && target[k] && typeof target[k] === 'object')
+      merge(target[k], v);
+    else if (k in target) target[k] = v;
+  }
+}
+
 function setHidden(hidden) {
   brain.hidden = hidden;
   stage.setVisible(!hidden);
@@ -155,11 +200,16 @@ api.onInit(async (init) => {
   // DevTools, ex. pet.brain.go('sleep'), pet.brain.go('wave'), pet.config...
   // pet.items.spawnBanana(), pet.brain.go('poop'), pet.brain.poopTimer = 0...
   if (init.debug) window.pet = { brain, stage, world, input, effects, items, config: CONFIG };
+  applyUserConfig(init.userConfig);
   applySettings(init.settings);
   if (init.modelUrl) await loadCustomModel(init.modelUrl);
   brain.onWorld(init.world);
   ready = true;
   loop.wake();
+  if (init.selftest) {
+    const { runSelfTest } = await import('./selftest.js');
+    runSelfTest({ brain, items, stage, world, api });
+  }
 });
 api.onWorld((info) => {
   input.shift(brain.onWorld(info));
@@ -171,6 +221,7 @@ api.onLedges((list) => brain.onLedges(list));
 api.onLedgeMove((u) => brain.onLedgeMove(u));
 api.onUserIdle((seconds) => brain.setUserIdle(seconds));
 api.onVisibility((visible) => setHidden(!visible));
+api.onCursor((c) => input.onCursor(c));
 api.onCommand((cmd) => {
   if (cmd.type === 'recall') brain.recall(cmd.x, cmd.y);
   if (cmd.type === 'banana') items.spawnBanana();

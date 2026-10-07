@@ -11,10 +11,12 @@
 //  Interface commune avec gltfMonkey.js (modèle .glb) :
 //    play(nom, {blend})   setFacing(dir)   setCycleRate(rad/s)   setSwing(rad)
 //    setLookTarget(dx, dy) update(dt)       isSettled()           headPosition(v)
-//    object3d             hitTargets        dispose()
+//    setProp(nom, valeur) object3d          hitTargets            dispose()
 // =============================================================================
 import * as THREE from 'three';
 import { ANIMATIONS, REST_POSE, createPose, copyPose, lerpPose } from './animations.js';
+import { ToonKit, group, ellipsoid, noRaycast } from './toon.js';
+import { buildBanana } from './props.js';
 
 const HIP_HEIGHT = 0.5; // hauteur des hanches debout
 const SWING_PIVOT = 1.55; // point par lequel on "attrape" le singe (nuque)
@@ -30,11 +32,7 @@ export class ProceduralMonkey {
     this.object3d = new THREE.Group();
     this.object3d.name = 'monkey';
     this.hitTargets = [];
-    this._materials = new Map();
-    this._geometries = new Set();
-
-    this._gradient = makeGradientMap([0.42, 0.72, 1.0]);
-    this._outlineMat = config.render.outline ? makeOutlineMaterial(config) : null;
+    this.kit = new ToonKit(config);
     this._build();
 
     // État de l'animation
@@ -113,6 +111,17 @@ export class ProceduralMonkey {
     );
   }
 
+  /**
+   * Accessoire : 'banana' = banane dans la main (valeur 0..1 = ce qu'il en
+   * reste, 0 = rien en main).
+   */
+  setProp(name, value) {
+    if (name !== 'banana') return;
+    const k = this.bananaScale;
+    this.banana.visible = value > 0.02;
+    this.banana.scale.set(k * Math.max(0.05, value), k, k); // mangée par le bout
+  }
+
   /** Position monde du centre de la tête (pour placer les bulles "Zzz", "!"...). */
   headPosition(target) {
     this.head.updateWorldMatrix(true, false);
@@ -167,10 +176,7 @@ export class ProceduralMonkey {
   }
 
   dispose() {
-    for (const g of this._geometries) g.dispose();
-    for (const m of this._materials.values()) m.dispose();
-    this._outlineMat?.dispose();
-    this._gradient.dispose();
+    this.kit.dispose();
   }
 
   // ---------------------------------------------------------------------------
@@ -225,6 +231,10 @@ export class ProceduralMonkey {
     this.mouth.scale.set(0.8 + mo * 0.3, mo, 1);
     const blush = max(0.001, p.blush);
     for (const b of this.blush) b.scale.setScalar(blush);
+    for (const b of this.brows) {
+      b.visible = p.brows > 0.05;
+      b.scale.setScalar(max(0.05, p.brows));
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -276,6 +286,16 @@ export class ProceduralMonkey {
     const elbow = group(shoulder, 0, -0.22, 0);
     this._part(limb(0.064, 0.2), C.fur, elbow);
     this._part(ellipsoid(0.09, 0.095, 0.085, 10, 6), C.skin, elbow, { pos: [0, -0.25, 0] });
+    if (side === 1) {
+      // Banane tenue dans la main gauche (visible seulement quand il mange)
+      this.banana = buildBanana(this.kit);
+      this.banana.position.set(0.02, -0.22, 0.12);
+      this.banana.rotation.set(0.3, 0, -Math.PI / 2 - 0.75);
+      this.bananaScale = 1.3;
+      this.banana.visible = false;
+      this.banana.traverse((o) => (o.raycast = noRaycast));
+      elbow.add(this.banana);
+    }
     return { shoulder, elbow };
   }
 
@@ -339,12 +359,11 @@ export class ProceduralMonkey {
 
     // Yeux (ouverts / fermés) avec petit reflet blanc
     this.eyes = [];
-    const highlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    this._materials.set('highlight', highlightMat);
+    const highlightMat = this.kit.basic('highlight', 0xffffff);
     for (const side of [1, -1]) {
       const eye = group(h, side * 0.15, c + 0.09, 0.425);
       const open = this._part(ellipsoid(0.068, 0.085, 0.03, 10, 8), C.eyes, eye, { outline: false, flat: false });
-      const hl = new THREE.Mesh(this._geo(ellipsoid(0.024, 0.024, 0.015, 6, 4)), highlightMat);
+      const hl = new THREE.Mesh(this.kit.geo(ellipsoid(0.024, 0.024, 0.015, 6, 4)), highlightMat);
       hl.position.set(0.022, 0.032, 0.024);
       hl.raycast = noRaycast;
       eye.add(hl);
@@ -352,6 +371,20 @@ export class ProceduralMonkey {
       const closed = this._part(arc, C.eyes, eye, { pos: [0, 0.01, 0.018], outline: false });
       closed.visible = false;
       this.eyes.push({ open, highlight: hl, closed });
+    }
+
+    // Sourcils froncés (visibles seulement quand il est fâché)
+    this.brows = [];
+    for (const side of [1, -1]) {
+      const brow = new THREE.CapsuleGeometry(0.018, 0.09, 2, 6);
+      brow.rotateZ(PI / 2);
+      const b = this._part(brow, C.furDark, h, {
+        pos: [side * 0.15, c + 0.21, 0.405],
+        rot: [0, 0, side * 0.42],
+        outline: false,
+      });
+      b.visible = false;
+      this.brows.push(b);
     }
 
     // Narines
@@ -380,97 +413,20 @@ export class ProceduralMonkey {
     }
   }
 
-  // Crée un mesh (matériau toon partagé par couleur) + son contour éventuel.
-  _part(geometry, color, parent, { pos, rot, outline = true, flat } = {}) {
-    // Style "low-poly" : on calcule des normales par facette (la géométrie
-    // lisse d'origine reste utilisée pour le contour, qui doit être continu).
-    const faceted = flat ?? this.cfg.render.flatShading;
-    const visible = faceted ? toFlat(geometry) : geometry;
-    const mesh = new THREE.Mesh(this._geo(visible), this._toon(color));
-    if (pos) mesh.position.set(...pos);
-    if (rot) mesh.rotation.set(...rot);
-    parent.add(mesh);
+  // Crée une pièce cartoon (voir toon.js) que la souris peut toucher.
+  _part(geometry, color, parent, opts) {
+    const mesh = this.kit.part(geometry, color, parent, opts);
     this.hitTargets.push(mesh);
-    if (outline && this._outlineMat) {
-      const o = new THREE.Mesh(this._geo(geometry), this._outlineMat);
-      o.raycast = noRaycast;
-      mesh.add(o);
-    }
     return mesh;
-  }
-
-  _geo(g) {
-    this._geometries.add(g);
-    return g;
-  }
-
-  _toon(color) {
-    let m = this._materials.get(color);
-    if (!m) {
-      m = new THREE.MeshToonMaterial({ color, gradientMap: this._gradient });
-      this._materials.set(color, m);
-    }
-    return m;
   }
 }
 
 // -----------------------------------------------------------------------------
 //  Utilitaires
 // -----------------------------------------------------------------------------
-function noRaycast() {}
-
-function group(parent, x = 0, y = 0, z = 0) {
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  parent.add(g);
-  return g;
-}
-
-function ellipsoid(rx, ry, rz, w = 12, h = 9) {
-  const g = new THREE.SphereGeometry(1, w, h);
-  g.scale(rx, ry, rz);
-  return g;
-}
-
-// Copie de la géométrie avec une normale par triangle (rendu à facettes).
-function toFlat(g) {
-  const flat = g.index ? g.toNonIndexed() : g.clone();
-  flat.computeVertexNormals();
-  return flat;
-}
-
 // Capsule qui part de son articulation (y = 0) et descend de `len`.
 function limb(r, len) {
   const g = new THREE.CapsuleGeometry(r, len, 3, 8);
   g.translate(0, -len / 2, 0);
   return g;
-}
-
-// Dégradé en paliers pour l'éclairage "cartoon".
-function makeGradientMap(levels) {
-  const data = new Uint8Array(levels.length * 4);
-  levels.forEach((v, i) => {
-    data.set([v * 255, v * 255, v * 255, 255], i * 4);
-  });
-  const tex = new THREE.DataTexture(data, levels.length, 1, THREE.RGBAFormat);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  tex.needsUpdate = true;
-  return tex;
-}
-
-// Contour "cartoon" : on redessine chaque pièce, gonflée le long de ses
-// normales, en n'affichant que ses faces arrière, dans une couleur sombre.
-function makeOutlineMaterial(config) {
-  const m = new THREE.MeshBasicMaterial({ color: config.colors.outline, side: THREE.BackSide });
-  const width = config.render.outlineWidth;
-  m.onBeforeCompile = (shader) => {
-    shader.uniforms.uOutline = { value: width };
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uOutline;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += normalize(normal) * uOutline;');
-  };
-  m.customProgramCacheKey = () => `monkey-outline-${width}`;
-  return m;
 }

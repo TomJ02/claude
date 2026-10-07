@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   moveToDisplayAt: (x, y) => ipcRenderer.send('pet:display-at', { x, y }),
   trackWindow: (id) => ipcRenderer.send('pet:track-window', id ?? null),
   showMenu: () => ipcRenderer.send('pet:show-menu'),
+  // Bêtises : { type: 'note', count } ou { type: 'move-window', id, dx, dy }
+  prank: (p) => ipcRenderer.send('pet:prank', p),
 
   // Processus principal → page
   onInit: on('pet:init'),

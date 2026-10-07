@@ -6,7 +6,8 @@
 //    l'autre quand il change d'écran) ;
 //  - rend la fenêtre transparente aux clics sauf sur le singe (avec la page) ;
 //  - gère l'icône de notification, les réglages, le lancement au démarrage ;
-//  - surveille les fenêtres ouvertes (Windows) pour qu'il puisse y grimper.
+//  - surveille les fenêtres ouvertes (Windows) pour qu'il puisse y grimper ;
+//  - exécute ses bêtises quand il est fâché (déplacer une fenêtre, ouvrir une note).
 // =============================================================================
 const { app, BrowserWindow, screen, ipcMain, powerMonitor, shell } = require('electron');
 const path = require('node:path');
@@ -77,6 +78,7 @@ function start() {
     getSettings: settings.get,
     onChange: updateSettings,
     onRecall: recall,
+    onCommand: (cmd) => send('pet:command', cmd),
     onOpenModelFolder: openModelFolder,
     onReload: () => win?.reload(),
     onQuit: () => app.quit(),
@@ -338,6 +340,28 @@ function setupIpc() {
     'pet:show-menu',
     fromPet(() => tray?.popup(win)),
   );
+
+  // Bêtises du singe fâché (seulement si elles sont cochées dans le menu "Jeu").
+  ipcMain.on(
+    'pet:prank',
+    fromPet((p) => {
+      if (!p || typeof p !== 'object') return;
+      const s = settings.get();
+      if (p.type === 'note' && s.prankNotes) {
+        writeAngryNote(Math.max(1, Math.min(99, Math.floor(Number(p.count)) || 1)));
+      } else if (p.type === 'move-window' && s.prankWindows && tracker && typeof p.id === 'string') {
+        const sf = currentDisplay.scaleFactor || 1; // la page parle en pixels logiques, Windows en pixels réels
+        const dx = clampNumber(p.dx, -800, 800);
+        const dy = clampNumber(p.dy, -400, 400);
+        tracker.moveBy(p.id, Math.round(dx * sf), Math.round(dy * sf));
+      }
+    }),
+  );
+}
+
+function clampNumber(v, min, max) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -397,6 +421,33 @@ function findModelFile() {
       }
     }) ?? null
   );
+}
+
+// Écrit une note "DONNE BANANES !!" (de plus en plus insistante) et l'ouvre
+// dans l'éditeur de texte par défaut (le Bloc-notes sous Windows).
+function writeAngryNote(count) {
+  const name = `DONNE BANANES ${'!'.repeat(1 + Math.min(count, 8))}.txt`;
+  const file = path.join(app.getPath('temp'), name);
+  const shouts = Array.from(
+    { length: Math.min(2 + count * 3, 40) },
+    (_, i) => `DONNE BANANES ${'!'.repeat(2 + (i % 5))}`,
+  );
+  const lines = [
+    '🍌🍌🍌   DONNE BANANES !!   🍌🍌🍌',
+    '',
+    ...shouts,
+    '',
+    count > 1 ? `(c'est la ${count}e fois que je demande...)` : '',
+    '— ton singe, pas content du tout 😠',
+  ];
+  try {
+    fs.writeFileSync(file, lines.join('\r\n'), 'utf8');
+    shell.openPath(file).then((err) => {
+      if (err) console.warn('[singe] impossible d’ouvrir la note :', err);
+    });
+  } catch (err) {
+    console.warn('[singe] impossible d’écrire la note :', err.message);
+  }
 }
 
 function openModelFolder() {

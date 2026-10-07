@@ -60,6 +60,7 @@ export const REST_POSE = Object.freeze({
   eyesMode: 0, // 0 = normaux, 1 = fermés endormis (‿ ‿), 2 = fermés heureux (^ ^)
   mouthOpen: 0, // 0 = sourire, 1 = bouche grande ouverte
   blush: 0.7, // intensité des joues roses (0..1)
+  brows: 0, // sourcils froncés (0 = invisibles, 1 = très fâché)
   swing: 0, // rotation de tout le corps autour du point de prise (quand on le porte)
 });
 
@@ -397,6 +398,113 @@ export const ANIMATIONS = {
       p.bodyRoll = sin(t * 6) * 0.08;
       p.eyesMode = 1;
       p.mouthOpen = 0.3;
+    },
+  },
+  // Fait caca : accroupi, il pousse (yeux plissés, joues rouges), puis soulagé.
+  poop: {
+    lookWeight: 0,
+    pose(p, { t }) {
+      p.hipsY = -0.1;
+      p.legLFwd = p.legRFwd = 0.55;
+      p.legLOut = p.legROut = 0.42;
+      p.kneeL = p.kneeR = 0.9;
+      p.bodyLean = 0.22;
+      p.armLFwd = p.armRFwd = 0.75;
+      p.armLRaise = p.armRRaise = 0.35;
+      p.foreLBend = p.foreRBend = 0.7;
+      p.tailLift = 1.1;
+      p.tailCurl = 0.12;
+      if (t < 1.7) {
+        p.hipsX = sin(t * 38) * 0.008; // il tremble en poussant
+        p.squash = 0.97 + sin(t * 3) * 0.02;
+        p.eyesMode = 1;
+        p.brows = 0.6;
+        p.blush = 1;
+        p.headNod = 0.1;
+      } else {
+        p.eyesMode = 2; // ouf !
+        p.mouthOpen = 0.3;
+        p.headNod = -0.12;
+        p.squash = 1.02;
+      }
+    },
+  },
+
+  // Mange une banane (tenue à deux mains), en mâchant.
+  eat: {
+    lookWeight: 0.2,
+    pose(p, { t }) {
+      sitBase(p, t);
+      p.armLFwd = p.armRFwd = 0.85;
+      p.armLRaise = p.armRRaise = 0.3;
+      p.armLTwist = p.armRTwist = -0.3;
+      p.foreLBend = p.foreRBend = 1.3;
+      const chew = max(0, sin(t * 9));
+      p.mouthOpen = 0.2 + chew * 0.35;
+      p.headNod = 0.06 + chew * 0.05;
+      p.eyesMode = 2;
+      p.blush = 1;
+      p.tailSwing = sin(t * 4) * 0.4;
+      p.tailLift = 0.1;
+    },
+  },
+
+  // Colère : trépigne, poings en l'air, sourcils froncés.
+  angry: {
+    lookWeight: 0.3,
+    pose(p, { t }) {
+      const s = sin(t * 13);
+      p.legLFwd = max(0, s) * 0.45;
+      p.kneeL = max(0, s) * 0.9;
+      p.legRFwd = max(0, -s) * 0.45;
+      p.kneeR = max(0, -s) * 0.9;
+      p.hipsY = -0.02 - abs(s) * 0.03;
+      p.armLRaise = 2.3 + s * 0.25;
+      p.armRRaise = 2.3 - s * 0.25;
+      p.foreLBend = p.foreRBend = 1.2;
+      p.bodyRoll = s * 0.06;
+      p.headNod = -0.08;
+      p.mouthOpen = 0.65 + abs(s) * 0.2;
+      p.brows = 1;
+      p.blush = 1;
+      p.eyesOpen = 0.9;
+      p.tailLift = 0.9;
+      p.tailSwing = s * 0.6;
+    },
+  },
+
+  // Réclame la banane : la montre du doigt en sautillant.
+  beg: {
+    lookWeight: 0.6,
+    pose(p, { t }) {
+      breathe(p, t);
+      const hop = abs(sin(t * 7));
+      p.hipsY = hop * 0.04;
+      p.armLRaise = 0.6;
+      p.armLFwd = 1.45;
+      p.foreLBend = 0.05;
+      p.armRRaise = 0.5 + sin(t * 7) * 0.2;
+      p.armRFwd = 0.6;
+      p.foreRBend = 1.0;
+      p.mouthOpen = 0.45;
+      p.blush = 0.9;
+      p.tailSwing = sin(t * 7) * 0.5;
+      p.tailLift = 0.5;
+    },
+  },
+
+  // Tape une note sur un clavier imaginaire, l'air déterminé.
+  type: {
+    lookWeight: 0,
+    pose(p, { t }) {
+      sitBase(p, t);
+      p.armLFwd = p.armRFwd = 1.0;
+      p.armLRaise = p.armRRaise = 0.25;
+      p.foreLBend = 0.8 + max(0, sin(t * 20)) * 0.35;
+      p.foreRBend = 0.8 + max(0, -sin(t * 20)) * 0.35;
+      p.headNod = 0.3;
+      p.brows = 1;
+      p.tailSwing = sin(t * 6) * 0.3;
     },
   },
 };

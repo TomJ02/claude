@@ -11,6 +11,7 @@ const { SPEEDS, SIZES } = require('./settings');
  * @param {() => object} o.getSettings
  * @param {(patch: object) => void} o.onChange
  * @param {() => void} o.onRecall
+ * @param {(cmd: object) => void} o.onCommand  commande envoyée à la page (banane, nettoyage)
  * @param {() => void} o.onOpenModelFolder
  * @param {() => void} o.onReload
  * @param {() => void} o.onQuit
@@ -65,6 +66,41 @@ function createTray(o) {
         click: (item) => o.onChange({ hideOnFullscreen: item.checked }),
       },
       { label: 'Rappeler le singe ici', click: o.onRecall },
+      {
+        label: 'Jeu (caca, bananes, bêtises)',
+        submenu: [
+          {
+            label: 'Il fait caca',
+            type: 'checkbox',
+            checked: s.poop,
+            click: (item) => o.onChange({ poop: item.checked }),
+          },
+          {
+            label: 'Des bananes tombent du ciel',
+            type: 'checkbox',
+            checked: s.bananas,
+            click: (item) => o.onChange({ bananas: item.checked }),
+          },
+          { type: 'separator' },
+          { label: 'Quand il est fâché, il peut :', enabled: false },
+          {
+            label: 'déplacer vos fenêtres',
+            type: 'checkbox',
+            checked: s.prankWindows,
+            enabled: o.windowsFeatures,
+            click: (item) => o.onChange({ prankWindows: item.checked }),
+          },
+          {
+            label: 'ouvrir des notes « DONNE BANANES !! »',
+            type: 'checkbox',
+            checked: s.prankNotes,
+            click: (item) => o.onChange({ prankNotes: item.checked }),
+          },
+          { type: 'separator' },
+          { label: 'Faire tomber une banane', click: () => o.onCommand({ type: 'banana' }) },
+          { label: 'Nettoyer tout le caca', click: () => o.onCommand({ type: 'clean' }) },
+        ],
+      },
       { type: 'separator' },
       {
         label: 'Lancer au démarrage',

@@ -11,6 +11,8 @@ import { World } from './world.js';
 import { Brain } from './behaviors.js';
 import { Input } from './input.js';
 import { Effects } from './effects.js';
+import { Items } from './items.js';
+import { renderSprites } from './sprites.js';
 
 const api = window.petAPI;
 const app = document.getElementById('app');
@@ -18,17 +20,27 @@ const app = document.getElementById('app');
 const stage = new Stage(app, CONFIG);
 const world = new World();
 const effects = new Effects(app, stage, CONFIG);
+const items = new Items({ container: app, stage, world, config: CONFIG });
 const loop = createLoop(frame);
 const brain = new Brain({
   monkey: new ProceduralMonkey(CONFIG),
   world,
   effects,
+  items,
   api,
   config: CONFIG,
   wake: loop.wake,
 });
 stage.setMonkey(brain.m);
-const input = new Input({ stage, brain, world, api, config: CONFIG, wake: loop.wake });
+const input = new Input({ stage, brain, world, items, api, config: CONFIG, wake: loop.wake });
+items.onLanded = (it) => {
+  if (it.kind === 'banana') brain.onBananaLanded(it);
+};
+try {
+  items.setSprites(renderSprites(CONFIG)); // images 3D de la banane et du caca
+} catch (err) {
+  console.warn('[singe] images des objets indisponibles, émojis utilisés à la place', err);
+}
 
 let ready = false;
 
@@ -36,6 +48,7 @@ let ready = false;
 function frame(dt) {
   if (!ready) return 0;
   brain.update(dt);
+  items.update(dt, brain.gameActive);
   brain.m.update(dt);
   input.update(dt);
   stage.place(brain.x, brain.y);
@@ -101,7 +114,9 @@ function applySettings(s) {
     stage.setSize(s.size);
     brain.setSize(s.size);
     effects.setSize(s.size);
+    items.setSize(s.size);
   }
+  brain.setGame({ poop: s.poop, bananas: s.bananas, prankWindows: s.prankWindows, prankNotes: s.prankNotes });
   brain.speedMul = s.speed;
   if (s.climbWindows !== brain.climbEnabled) brain.setClimbEnabled(s.climbWindows);
   if (s.paused !== brain.paused) brain.setPaused(s.paused);
@@ -123,7 +138,7 @@ async function loadCustomModel(url) {
 function setHidden(hidden) {
   brain.hidden = hidden;
   stage.setVisible(!hidden);
-  for (const el of app.querySelectorAll('.shadow, .emote, .zzz')) el.style.visibility = hidden ? 'hidden' : '';
+  for (const el of app.querySelectorAll('.shadow, .emote, .zzz, .items')) el.style.visibility = hidden ? 'hidden' : '';
   if (hidden) {
     input.reset();
     loop.stop();
@@ -138,7 +153,8 @@ function setHidden(hidden) {
 api.onInit(async (init) => {
   // Mode développeur (npm run dev) : `pet` est accessible dans la console des
   // DevTools, ex. pet.brain.go('sleep'), pet.brain.go('wave'), pet.config...
-  if (init.debug) window.pet = { brain, stage, world, input, effects, config: CONFIG };
+  // pet.items.spawnBanana(), pet.brain.go('poop'), pet.brain.poopTimer = 0...
+  if (init.debug) window.pet = { brain, stage, world, input, effects, items, config: CONFIG };
   applySettings(init.settings);
   if (init.modelUrl) await loadCustomModel(init.modelUrl);
   brain.onWorld(init.world);
@@ -157,6 +173,8 @@ api.onUserIdle((seconds) => brain.setUserIdle(seconds));
 api.onVisibility((visible) => setHidden(!visible));
 api.onCommand((cmd) => {
   if (cmd.type === 'recall') brain.recall(cmd.x, cmd.y);
+  if (cmd.type === 'banana') items.spawnBanana();
+  if (cmd.type === 'clean') items.cleanAll();
   loop.wake();
 });
 
@@ -167,4 +185,5 @@ window.addEventListener('resize', () => {
 
 stage.setSize(CONFIG.referenceSize);
 effects.setSize(CONFIG.referenceSize);
+items.setSize(CONFIG.referenceSize);
 api.ready();

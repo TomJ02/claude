@@ -34,6 +34,11 @@ const FALLBACK = {
   dragged: 'fall',
   climb: 'walk',
   dizzy: 'sit',
+  poop: 'crouch',
+  eat: 'sit',
+  angry: 'dizzy',
+  beg: 'wave',
+  type: 'sit',
   sit: 'idle',
   walk: 'idle',
 };
@@ -137,6 +142,9 @@ export class GltfMonkey {
   setCycleRate(rate) {
     this.cycleRate = rate;
   }
+
+  // Pas d'accessoire (banane en main) sur un modèle personnalisé.
+  setProp() {}
 
   setSwing(angle) {
     this.swingPivot.rotation.z = angle;

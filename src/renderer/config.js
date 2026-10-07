@@ -104,6 +104,23 @@ export const CONFIG = {
   },
 
   // ---------------------------------------------------------------------------
+  //  Jeu : caca, bananes et bêtises (activables dans le menu "Jeu").
+  // ---------------------------------------------------------------------------
+  game: {
+    poopEvery: [300, 720], // il fait caca toutes les 5 à 12 min environ...
+    poopAfterEating: [25, 70], // ... ou peu de temps après avoir mangé une banane
+    maxPoops: 6, // au-delà, il attend que vous nettoyiez
+    bananaEvery: [150, 420], // une banane tombe du ciel toutes les 2 min 30 à 7 min
+    maxBananas: 3,
+    bananaPatience: 60, // secondes avant qu'il se fâche si on ne lui donne pas la banane
+    mischiefEvery: [25, 45], // fâché : une bêtise toutes les 25 à 45 s jusqu'à ce qu'il soit nourri
+    noteCooldown: 90, // au moins 90 s entre deux notes "donne bananes !!"
+    windowShove: [140, 320], // de combien (px) il pousse une fenêtre
+    eatDuration: 3.2, // durée du repas (s)
+    giveRadius: 0.6, // lâcher la banane à moins de N × taille de lui = la lui donner
+  },
+
+  // ---------------------------------------------------------------------------
   //  Fenêtres (bonus) : grimper / s'asseoir sur le bord supérieur des fenêtres.
   // ---------------------------------------------------------------------------
   windows: {
@@ -170,6 +187,11 @@ export const CONFIG = {
       dragged: ['drag', 'hang', 'grab'],
       climb: ['climb'],
       dizzy: ['dizzy', 'hit'],
+      poop: ['poop', 'squat'],
+      eat: ['eat'],
+      angry: ['angry', 'stomp', 'tantrum'],
+      beg: ['beg', 'point'],
+      type: ['type', 'typing'],
     },
   },
 };

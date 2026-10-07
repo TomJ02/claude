@@ -26,6 +26,11 @@ const DEFAULTS = {
   size: 125, // hauteur du singe en pixels
   climbWindows: true, // grimper / s'asseoir sur les fenêtres (Windows)
   hideOnFullscreen: true, // se cacher quand une appli est en plein écran (Windows)
+  // Jeu
+  poop: true, // il fait caca (cliquez dessus pour nettoyer)
+  bananas: true, // des bananes tombent : donnez-les-lui !
+  prankWindows: true, // fâché, il bouscule vos fenêtres (Windows)
+  prankNotes: true, // fâché, il ouvre des notes "DONNE BANANES !!"
   lastDisplayId: null, // dernier écran où il se trouvait
 };
 
@@ -37,7 +42,9 @@ function sanitize(d) {
   const out = { ...DEFAULTS, ...d };
   if (!(typeof out.speed === 'number' && out.speed > 0 && out.speed <= 5)) out.speed = DEFAULTS.speed;
   if (!(typeof out.size === 'number' && out.size >= 40 && out.size <= 600)) out.size = DEFAULTS.size;
-  for (const k of ['paused', 'climbWindows', 'hideOnFullscreen']) out[k] = !!out[k];
+  for (const k of ['paused', 'climbWindows', 'hideOnFullscreen', 'poop', 'bananas', 'prankWindows', 'prankNotes']) {
+    out[k] = !!out[k];
+  }
   return out;
 }
 

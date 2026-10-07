@@ -13,6 +13,9 @@
 //  dans STATES et une entrée dans decide().
 //
 //  Position : (x, y) = point entre les pieds, en pixels de l'écran courant.
+//
+//  Le "jeu" (caca, bananes, bêtises) est géré en bas de la classe Brain :
+//  _updateGame(), _updateMood(), mischief(), feed().
 // =============================================================================
 import { FLOOR } from './world.js';
 
@@ -35,7 +38,7 @@ function weightedPick(options) {
 }
 
 // États "calmes" (au sol, éveillé) : on peut les interrompre (pause, poursuite...).
-const CALM = new Set(['idle', 'walk', 'sit', 'scratch', 'wave', 'happy', 'follow']);
+const CALM = new Set(['idle', 'walk', 'sit', 'scratch', 'wave', 'happy', 'follow', 'beg']);
 // États qui ont besoin de 60 images/s.
 const ACTIVE = new Set([
   'walk',
@@ -51,6 +54,12 @@ const ACTIVE = new Set([
   'happy',
   'dizzy',
   'yawn',
+  'poop',
+  'eat',
+  'angry',
+  'beg',
+  'type',
+  'shove',
 ]);
 
 // =============================================================================
@@ -255,6 +264,12 @@ const STATES = {
         b.fx.emote('♥');
         return b.go('wave'); // arrivée : petit coucou
       }
+      // Arrivé sur la fenêtre qu'il voulait bousculer ?
+      const shove = b.pendingShove;
+      b.pendingShove = null;
+      if (shove && b.onLedge() && b.support.id === shove && b.mood === 'angry') {
+        return b.go('shove', { ledgeId: shove });
+      }
       b.go(b.paused ? 'paused' : 'idle');
     },
   },
@@ -378,6 +393,130 @@ const STATES = {
     },
   },
 
+  // ---------------------------------------------------------------------------
+  //  Jeu : caca, bananes, colère et bêtises
+  // ---------------------------------------------------------------------------
+
+  // Fait caca (accroupi), le dépose derrière lui, puis s'éloigne l'air de rien.
+  poop: {
+    enter(b, d) {
+      b.m.play('poop', { blend: 0.3 });
+      b.m.setFacing(0);
+      b.vx = 0;
+      d.dur = 2.6;
+      d.done = false;
+    },
+    update(b, dt, d) {
+      if (!d.done && b.t >= 1.7) {
+        d.done = true;
+        b.items.addPoop(b.x, b.y);
+        b.fx.emote('💩');
+      }
+      if (b.t >= d.dur) {
+        const dir = chance(0.5) ? 1 : -1;
+        b.go('walk', { target: b.x + dir * rand(1.3, 2.5) * b.size });
+      }
+    },
+  },
+
+  // Mange la banane qu'on lui a donnée (elle diminue dans sa main).
+  eat: {
+    enter(b, d) {
+      b.m.play('eat', { blend: 0.25 });
+      b.m.setFacing(0);
+      b.m.setProp('banana', 1);
+      b.vx = 0;
+      b.fx.emote('😋');
+      d.dur = b.cfg.game.eatDuration;
+    },
+    exit(b) {
+      b.m.setProp('banana', 0);
+    },
+    update(b, dt, d) {
+      b.m.setProp('banana', Math.max(0.05, 1 - b.t / d.dur));
+      if (b.t >= d.dur) {
+        b.fx.emote('♥');
+        b.go('happy');
+      }
+    },
+  },
+
+  // Réclame la banane qui traîne : la montre du doigt en sautillant.
+  beg: {
+    enter(b, d) {
+      d.target = b.items.nearestBanana(b.x, b.y);
+      if (d.target) b.dir = sign(d.target.x - b.x);
+      b.m.setFacing(b.dir * 0.7);
+      b.m.play('beg');
+      b.vx = 0;
+      b.fx.emote(b.mood === 'ok' ? '🍌' : '🍌?');
+      d.dur = 1.8;
+    },
+    update(b, dt, d) {
+      if (b.t >= d.dur) b.go(b.paused ? 'paused' : 'idle');
+    },
+  },
+
+  // Colère : il trépigne, puis passe éventuellement à une bêtise (d.next).
+  angry: {
+    enter(b, d) {
+      b.m.play('angry');
+      b.m.setFacing(0);
+      b.vx = 0;
+      b.fx.emote(chance(0.5) ? '💢' : '🍌!!');
+      d.dur = 1.6;
+    },
+    update(b, dt, d) {
+      if (b.t < d.dur) return;
+      if (d.next === 'note' && b.game.prankNotes) return b.go('type');
+      if (d.next === 'window' && d.here && b.game.prankWindows && b.support?.id === d.here) {
+        return b.go('shove', { ledgeId: d.here });
+      }
+      if (d.next === 'window' && d.shove && b.game.prankWindows && b.support?.kind === 'floor') {
+        b.pendingShove = d.shove.ledgeId;
+        return b.startClimb(d.shove);
+      }
+      b.go(b.paused ? 'paused' : 'idle');
+    },
+  },
+
+  // Bêtise n°1 : debout sur une fenêtre, il trépigne et la fait glisser.
+  shove: {
+    enter(b, d) {
+      b.m.play('angry');
+      b.m.setFacing(0);
+      b.vx = 0;
+      b.fx.emote('💢');
+      d.dur = 2.4;
+      const move = b.planWindowShove(d.ledgeId);
+      if (move) b.api.prank({ type: 'move-window', id: d.ledgeId, dx: move.dx, dy: move.dy });
+    },
+    update(b, dt, d) {
+      if (b.t >= d.dur) b.go('idle');
+    },
+  },
+
+  // Bêtise n°2 : il "tape" une note, puis elle s'ouvre : "DONNE BANANES !!".
+  type: {
+    enter(b, d) {
+      b.m.play('type');
+      b.m.setFacing(0);
+      b.vx = 0;
+      b.fx.emote('📝');
+      d.dur = 2;
+    },
+    update(b, dt, d) {
+      if (b.t < d.dur) return;
+      if (b.game.prankNotes) {
+        b.lastNoteAt = b.clock;
+        b.notesWritten++;
+        b.api.prank({ type: 'note', count: b.notesWritten });
+        b.fx.emote('😤');
+      }
+      b.go(b.paused ? 'paused' : 'idle');
+    },
+  },
+
   // Pause (menu de la zone de notification) : reste assis sans bouger.
   paused: {
     enter(b) {
@@ -396,10 +535,11 @@ const STATES = {
 //  Le cerveau
 // =============================================================================
 export class Brain {
-  constructor({ monkey, world, effects, api, config, wake }) {
+  constructor({ monkey, world, effects, items, api, config, wake }) {
     this.m = monkey;
     this.world = world;
     this.fx = effects;
+    this.items = items;
     this.api = api;
     this.cfg = config;
     this.wake = wake ?? (() => {});
@@ -429,6 +569,21 @@ export class Brain {
     this.state = 'air';
     this.t = 0;
     this.d = {};
+
+    // Jeu (voir config.js > game, et le menu "Jeu")
+    const G = config.game;
+    this.game = { poop: true, bananas: true, prankWindows: true, prankNotes: true };
+    this.clock = 0; // temps écoulé (s)
+    this.gameActive = false; // les minuteries du jeu avancent-elles ?
+    this.poopTimer = range(G.poopEvery);
+    this.bananaTimer = range(G.bananaEvery) * 0.5; // la première banane arrive plus vite
+    this.mood = 'ok'; // 'ok' | 'annoyed' (il réclame) | 'angry' (il fait des bêtises)
+    this.begTimer = 0;
+    this.mischiefTimer = 0;
+    this.lastMischief = null;
+    this.lastNoteAt = -Infinity;
+    this.notesWritten = 0;
+    this.pendingShove = null; // fenêtre qu'il compte bousculer une fois dessus
   }
 
   // ---------------------------------------------------------------------------
@@ -447,8 +602,10 @@ export class Brain {
     if (this.hidden || this.world.displayId == null) return;
     this.t += dt;
     this.followCooldown = Math.max(0, this.followCooldown - dt);
+    this.clock += dt;
     this._regen(dt);
     if (this.support && !this.checkSupport()) return; // le sol s'est dérobé : il tombe
+    this._updateGame(dt);
     STATES[this.state].update?.(this, dt, this.d);
     this._updateLook();
     this._syncTracking();
@@ -458,7 +615,7 @@ export class Brain {
   desiredFps() {
     const r = this.cfg.render;
     if (this.hidden) return 0;
-    if (ACTIVE.has(this.state) || !this.m.isSettled() || this.fx.isBusy()) return r.fpsActive;
+    if (ACTIVE.has(this.state) || !this.m.isSettled() || this.fx.isBusy() || this.items.isBusy()) return r.fpsActive;
     if (this.state === 'sleep') return r.fpsSleep;
     if (this.state === 'paused') return 0;
     if (this.looking) return r.fpsActive;
@@ -484,6 +641,7 @@ export class Brain {
       ['climb', climb ? W.climb * e : 0],
       ['jumpDown', this.onLedge() ? W.jumpDown * (0.4 + (1 - e)) : 0],
       ['explore', exploreSide ? W.explore * e : 0],
+      ['beg', this.game.bananas && this.items.nearestBanana(this.x, this.y) ? 2 : 0],
     ]);
 
     switch (choice) {
@@ -507,6 +665,8 @@ export class Brain {
           ignoreLedge: true,
         });
       }
+      case 'beg':
+        return this.go('beg');
       case 'explore': {
         const target = exploreSide < 0 ? -this.size : this.world.width + this.size;
         return this.go('walk', { target, crossing: exploreSide });
@@ -712,6 +872,9 @@ export class Brain {
       target = { dx: c.x - this.x, dy: c.y - headY };
     }
     this.looking = !!target;
+    // Quand il réclame, il fixe la banane
+    const banana = this.state === 'beg' ? this.d.target : null;
+    if (banana && this.items.list.includes(banana)) target = { dx: banana.x - this.x, dy: banana.y - headY };
     if (!target && this.idleLook && (this.state === 'idle' || this.state === 'sit')) target = this.idleLook;
     if (target) this.m.setLookTarget(target.dx, target.dy);
     else this.m.setLookTarget(null);
@@ -864,6 +1027,10 @@ export class Brain {
 
   onClick() {
     const s = this.state;
+    if (this.mood === 'angry' && this.support && CALM.has(s)) {
+      this.fx.emote('🍌!!'); // pas de coucou tant qu'il n'a pas eu sa banane
+      return this.go('angry', {});
+    }
     if (s === 'sleep' || s === 'yawn') {
       this.fx.emote('!');
       return this.go('jump', { height: this.size * 0.5, startled: true });
@@ -887,6 +1054,7 @@ export class Brain {
 
   startDrag(cursor) {
     if (this.state === 'transfer') return false;
+    this.pendingShove = null;
     this.grab = { cursor: { ...cursor }, offX: this.x - cursor.x, offY: this.y - cursor.y, vx: 0 };
     this.go('dragged');
     return true;
@@ -906,5 +1074,137 @@ export class Brain {
     this.vy = clamp(vy, -max, max);
     this.support = null;
     this.go('air', { flail: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Jeu : caca, bananes, humeur et bêtises
+  // ---------------------------------------------------------------------------
+  /** Réglages du menu "Jeu". */
+  setGame(g) {
+    this.game = { ...this.game, ...g };
+    if (!this.game.bananas) {
+      this.items.removeBananas();
+      this.mood = 'ok';
+    }
+  }
+
+  /** Le point p est-il assez près de lui pour lui donner la banane ? */
+  isNear(p) {
+    return Math.hypot(p.x - this.x, p.y - (this.y - this.size * 0.45)) < this.cfg.game.giveRadius * this.size;
+  }
+
+  /** On lui donne une banane. Retourne false s'il ne peut pas la prendre maintenant. */
+  feed() {
+    if (!this.support || ['air', 'jump', 'dragged', 'climb', 'transfer', 'eat'].includes(this.state)) return false;
+    this.energy = Math.min(1, this.energy + 0.3);
+    this.mood = 'ok';
+    this.pendingShove = null;
+    this.items.resetBananaAges(); // il est content pour un moment
+    this.poopTimer = Math.min(this.poopTimer, range(this.cfg.game.poopAfterEating)); // ... et ça va passer
+    this.go('eat');
+    return true;
+  }
+
+  /** Une banane vient de toucher le sol. */
+  onBananaLanded(it) {
+    if (it.fromUser) {
+      // Lâchée juste à côté de lui : il l'attrape.
+      const near =
+        Math.abs(it.x - this.x) < this.cfg.game.giveRadius * this.size && Math.abs(it.y - this.y) < this.size * 0.4;
+      if (near && this.feed()) this.items.consume(it);
+      return;
+    }
+    // Tombée du ciel : il la réclame.
+    if (this.support && CALM.has(this.state) && !this.paused) this.go('beg');
+  }
+
+  onPoopCleaned() {
+    if (this.support && CALM.has(this.state) && chance(0.5)) this.fx.emote('✨');
+  }
+
+  _updateGame(dt) {
+    const G = this.cfg.game;
+    // Les minuteries n'avancent que si vous êtes là et qu'il est réveillé.
+    this.gameActive =
+      !this.paused && !this.hidden && !this.userAway() && this.state !== 'sleep' && this.state !== 'yawn';
+    if (this.gameActive) {
+      if (this.game.poop) this.poopTimer -= dt;
+      if (this.game.bananas) this.bananaTimer -= dt;
+    }
+    if (this.bananaTimer <= 0) {
+      this.bananaTimer = range(G.bananaEvery);
+      if (this.game.bananas && this.items.count('banana') < G.maxBananas) this.items.spawnBanana();
+    }
+    if (this.poopTimer <= 0 && this.state === 'idle' && this.support?.kind === 'floor') {
+      this.poopTimer = range(G.poopEvery);
+      if (this.game.poop && this.items.count('poop') < G.maxPoops) return this.go('poop');
+    }
+    this._updateMood(dt);
+  }
+
+  // L'humeur dépend de la plus vieille banane qu'on ne lui a pas donnée.
+  _updateMood(dt) {
+    const G = this.cfg.game;
+    const waited = this.game.bananas ? this.items.oldestBananaAge() : 0;
+    const mood = waited >= G.bananaPatience ? 'angry' : waited >= G.bananaPatience * 0.5 ? 'annoyed' : 'ok';
+    if (mood !== this.mood) {
+      this.mood = mood;
+      if (mood === 'annoyed') this.begTimer = 0;
+      if (mood === 'angry') {
+        this.fx.emote('💢');
+        this.mischiefTimer = rand(2, 5);
+      }
+    }
+    if (!this.gameActive || !this.support) return;
+    const calm = ['idle', 'sit', 'walk', 'follow', 'scratch'].includes(this.state);
+    if (mood === 'annoyed') {
+      this.begTimer -= dt;
+      if (this.begTimer <= 0 && calm) {
+        this.begTimer = rand(8, 15);
+        this.go('beg');
+      }
+    } else if (mood === 'angry') {
+      this.mischiefTimer -= dt;
+      if (this.mischiefTimer <= 0 && calm) {
+        this.mischiefTimer = range(G.mischiefEvery);
+        this.mischief();
+      }
+    }
+  }
+
+  /** Il est fâché : il trépigne, puis bouscule une fenêtre ou écrit une note. */
+  mischief() {
+    const canNote = this.game.prankNotes && this.clock - this.lastNoteAt >= this.cfg.game.noteCooldown;
+    // Déjà sur une fenêtre : il bouscule celle-ci. Sinon il va grimper sur une autre.
+    const here = this.game.prankWindows && this.onLedge() ? this.support.id : null;
+    const shove =
+      this.game.prankWindows && this.climbEnabled && this.support?.kind === 'floor' ? this.pickClimb() : null;
+    const canShove = !!(here || shove);
+    let next = null;
+    if (canShove && canNote) {
+      next = this.lastMischief === 'window' ? 'note' : 'window'; // on alterne
+    } else {
+      next = canShove ? 'window' : canNote ? 'note' : null;
+    }
+    this.lastMischief = next;
+    this.go('angry', { next, shove, here });
+  }
+
+  /** Calcule de combien pousser la fenêtre (en restant aux 3/4 à l'écran). */
+  planWindowShove(id) {
+    const l = this.world.ledges.get(id);
+    if (!l) return null;
+    const G = this.cfg.game;
+    const w = this.world;
+    const width = l.right - l.left;
+    const minLeft = w.minX - width * 0.25;
+    const maxLeft = Math.max(minLeft, w.maxX - width * 0.75);
+    let dx = range(G.windowShove) * this.k * (chance(0.5) ? 1 : -1);
+    if (l.left + dx < minLeft || l.left + dx > maxLeft) dx = -dx;
+    dx = clamp(l.left + dx, minLeft, maxLeft) - l.left;
+    let dy = rand(0, 80) * this.k;
+    dy = Math.max(0, Math.min(dy, w.floorY - 150 - l.y));
+    if (Math.abs(dx) < 20 && dy < 20) return null;
+    return { dx: Math.round(dx), dy: Math.round(dy) };
   }
 }

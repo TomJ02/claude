@@ -6,6 +6,10 @@ fenêtres… et vous pouvez l'attraper pour le lancer à travers l'écran. Les c
 traversent la fenêtre partout sauf sur lui : vous continuez à utiliser votre PC
 normalement.
 
+Et il faut s'en occuper : il fait **caca** (cliquez dessus pour nettoyer) et des
+**bananes** tombent du ciel. Donnez-les-lui, sinon il se fâche et fait des
+bêtises : il **bouscule vos fenêtres** ou vous ouvre des notes **« DONNE BANANES !! »**.
+
 ![Aperçu des animations](docs/apercu.png)
 
 ---
@@ -15,13 +19,14 @@ normalement.
 1. [Fonctionnalités](#fonctionnalités)
 2. [Installation et lancement (pas à pas)](#installation-et-lancement-pas-à-pas)
 3. [Utilisation](#utilisation)
-4. [Générer un exécutable (.exe / .app)](#générer-un-exécutable-exe--app)
-5. [Personnaliser](#personnaliser)
-6. [Remplacer le modèle 3D par un fichier .glb](#remplacer-le-modèle-3d-par-un-fichier-glb)
-7. [Architecture du code](#architecture-du-code)
-8. [Choix techniques](#choix-techniques)
-9. [Performances](#performances)
-10. [Dépannage](#dépannage)
+4. [Le jeu : caca, bananes et bêtises](#le-jeu--caca-bananes-et-bêtises)
+5. [Générer un exécutable (.exe / .app)](#générer-un-exécutable-exe--app)
+6. [Personnaliser](#personnaliser)
+7. [Remplacer le modèle 3D par un fichier .glb](#remplacer-le-modèle-3d-par-un-fichier-glb)
+8. [Architecture du code](#architecture-du-code)
+9. [Choix techniques](#choix-techniques)
+10. [Performances](#performances)
+11. [Dépannage](#dépannage)
 
 ---
 
@@ -33,11 +38,12 @@ normalement.
 | **Clics traversants** | La fenêtre ignore la souris sauf quand le curseur est *sur* le singe (détection précise par lancer de rayon sur le modèle 3D) |
 | **Multi-écran** | Il passe à pied d'un écran à l'autre (écrans côte à côte) ; on peut aussi le glisser d'un écran à l'autre |
 | **Le singe** | Low-poly / cartoon, contour sombre, ~125 px (100 à 200 px), construit en code avec des primitives Three.js, ou chargé depuis un `.glb` remplaçable |
-| **Animations** | Marcher, s'asseoir (au sol ou jambes dans le vide sur une fenêtre), dormir (avec « Z z z »), bâiller, se gratter la tête, sauter, faire coucou, être content, tomber, être porté, grimper, être étourdi |
+| **Animations** | Marcher, s'asseoir (au sol ou jambes dans le vide sur une fenêtre), dormir (avec « Z z z »), bâiller, se gratter la tête, sauter, faire coucou, être content, tomber, être porté, grimper, être étourdi, faire caca, manger une banane, réclamer, trépigner de colère, taper une note |
 | **Comportements** | Marche vers une destination (accélération et freinage, pas de téléportation), s'arrête, regarde autour de lui, alterne activité et repos selon son **énergie**, s'endort quand il est fatigué **ou** quand vous n'avez pas touché le PC depuis 2 min, se réveille quand vous revenez |
 | **Fenêtres (bonus)** | Il grimpe sur le bord supérieur des fenêtres ouvertes (ou y saute si c'est bas), s'y assoit, se déplace avec la fenêtre si vous la bougez, tombe si elle est fermée/réduite, et redescend en sautant. Lâché au-dessus d'une fenêtre, il atterrit dessus |
 | **Interactions** | Clic : il saute ou fait coucou · Glisser-déposer : il pend et se balance, puis retombe avec la gravité (on peut le *lancer*) · Appui long : on le soulève · Caresse (aller-retour du curseur sur lui) : il est content · Il tourne la tête vers le curseur et le suit parfois · Clic droit : menu |
-| **Zone de notification** | Pause / Reprendre, Vitesse, Taille, Grimper sur les fenêtres, Se cacher pendant le plein écran, Rappeler le singe ici, Lancer au démarrage, Modèle 3D, Quitter |
+| **Jeu** | Il fait caca (un clic pour nettoyer) · des bananes tombent du ciel : glissez-les jusqu'à lui · ignoré trop longtemps, il se fâche et fait des bêtises (déplace vos fenêtres, ouvre des notes « DONNE BANANES !! ») · tout est désactivable |
+| **Zone de notification** | Pause / Reprendre, Vitesse, Taille, Grimper sur les fenêtres, Se cacher pendant le plein écran, Rappeler le singe ici, Jeu, Lancer au démarrage, Modèle 3D, Quitter |
 | **Discrétion** | Se cache automatiquement quand une application est en plein écran (vidéo, jeu, présentation) et quand la session est verrouillée |
 
 ---
@@ -96,6 +102,9 @@ pet.brain.go('wave')             // coucou
 pet.brain.go('walk', { target: 300 })  // marcher jusqu'à x = 300 px
 pet.brain.energy = 0.1           // le fatiguer
 pet.config.movement.walkSpeed = 150    // changer un réglage à chaud
+pet.items.spawnBanana()          // faire tomber une banane
+pet.brain.poopTimer = 0          // envie pressante...
+pet.config.game.bananaPatience = 5     // il se fâche après 5 s au lieu de 60
 ```
 Après avoir modifié un fichier du dossier `src/renderer/`, appuyez sur **Ctrl+R**
 dans les DevTools pour recharger ; pour `src/main/`, relancez `npm run dev`.
@@ -122,11 +131,33 @@ Menu de l'icône de notification (clic gauche ou droit) :
 - **Grimper sur les fenêtres** : active le bonus « rebords de fenêtres ».
 - **Se cacher pendant le plein écran** : le singe disparaît pendant les vidéos/jeux en plein écran.
 - **Rappeler le singe ici** : le fait réapparaître près du curseur (pratique en multi-écran).
+- **Jeu (caca, bananes, bêtises)** : active ou non chaque élément du jeu (voir ci-dessous), fait tomber une banane tout de suite, ou nettoie tout le caca d'un coup.
 - **Lancer au démarrage** : démarre avec Windows (session utilisateur).
 - **Modèle 3D** : ouvre le dossier où déposer un `monkey.glb`, ou recharge le singe.
 - **Quitter**.
 
 Les réglages sont enregistrés dans `%APPDATA%\Singe de bureau\settings.json`.
+
+---
+
+## Le jeu : caca, bananes et bêtises
+
+![Le jeu](docs/jeu.png)
+
+| Quoi | Comment ça marche |
+|---|---|
+| 💩 **Caca** | De temps en temps (toutes les 5 à 12 min, et peu après avoir mangé), il s'accroupit, pousse… et laisse un petit caca sur la barre des tâches avant de s'éloigner l'air de rien. **Cliquez dessus** pour le nettoyer. Il en laisse au plus 6 : au-delà, il attend que vous fassiez le ménage. |
+| 🍌 **Bananes** | Toutes les 2 min 30 à 7 min, une banane tombe du ciel (elle peut atterrir sur une fenêtre). Il la montre du doigt : **attrapez-la et lâchez-la sur lui** (ou juste à côté). Il s'assoit et la mange, tout content. |
+| 😠 **Patience** | Une banane qui traîne : après 30 s il la réclame en sautillant 🍌? ; après **60 s il se fâche** 💢 (sourcils froncés, il trépigne, ne fait plus coucou quand on clique). |
+| 🙈 **Bêtises** | Tant qu'il est fâché, toutes les 25 à 45 s il fait une bêtise, en alternant : **il grimpe sur une de vos fenêtres et la fait glisser** de quelques centimètres (140 à 320 px) en trépignant dessus, ou **il tape une note** et ouvre dans le Bloc-notes un fichier « DONNE BANANES !!.txt » de plus en plus insistant (au plus une note toutes les 90 s). |
+| 😋 **Le calmer** | Donnez-lui une banane : il se calme immédiatement et reste content un moment. |
+
+Garde-fous :
+
+- Le temps d'attente et les minuteries **s'arrêtent** quand vous n'êtes pas devant le PC, quand il dort, en pause, ou quand il est caché (plein écran, session verrouillée).
+- Il ne déplace que des fenêtres d'applications « normales » (jamais une fenêtre agrandie, réduite, la barre des tâches ou le bureau), sans les activer ni les redimensionner, et toujours en les laissant aux trois quarts visibles. Cela nécessite l'option *Grimper sur les fenêtres* (Windows uniquement).
+- Les notes sont écrites dans le dossier temporaire de Windows (`%TEMP%`) et s'ouvrent avec votre éditeur de texte par défaut.
+- Chaque élément se désactive dans le menu **Jeu** : *Il fait caca*, *Des bananes tombent du ciel*, *déplacer vos fenêtres*, *ouvrir des notes*. Les fréquences et la patience se règlent dans `config.js > game`.
 
 ---
 
@@ -186,6 +217,8 @@ Tout est commenté en français. Les fichiers à connaître :
 | La forme du singe (tête, oreilles, queue…) | `src/renderer/monkey.js` |
 | Les bulles « ! », « ? », « ♥ », « Z z z », l'ombre | `src/renderer/effects.js`, `style.css` |
 | Le menu de notification | `src/main/tray.js`, choix de vitesses/tailles dans `src/main/settings.js` |
+| Le jeu : fréquence du caca et des bananes, patience, bêtises | `src/renderer/config.js > game` ; logique dans `behaviors.js` (en bas : `_updateGame`, `mischief`, `feed`) |
+| L'allure de la banane et du caca | `src/renderer/props.js` (objets 3D), `items.js` (comportement à l'écran) |
 | Fréquence de surveillance des fenêtres | constantes en haut de `src/main/main.js` |
 
 ### Exemples dans `config.js`
@@ -317,7 +350,11 @@ singe-de-bureau/
         ├── stage.js          scène Three.js, caméra, lancer de rayon
         ├── world.js          sol, bords d'écran, rebords de fenêtres
         ├── input.js          souris : survol, clic, glisser, caresse
-        └── effects.js        ombre, « Z z z », bulles d'émotion
+        ├── effects.js        ombre, « Z z z », bulles d'émotion
+        ├── items.js          objets à l'écran : cacas et bananes (chute, clic, glisser)
+        ├── props.js          banane et caca en 3D (même style que le singe)
+        ├── sprites.js        transforme ces objets 3D en images au démarrage
+        └── toon.js           matériaux cartoon partagés (paliers, contour, facettes)
 ```
 
 Fonctionnement en bref :
@@ -376,6 +413,8 @@ Objectif : < 5 % de CPU au repos et 60 images/s fluides quand il bouge.
 - **Rien n'est dessiné** quand il est caché (plein écran, session verrouillée).
 - **Effets en HTML** (ombre, bulles) animés par la même boucle : pas d'animation
   CSS qui tournerait en permanence.
+- **Bananes et cacas** : dessinés une seule fois en 3D au démarrage, puis affichés
+  comme de simples images ; ils ne coûtent rien tant qu'ils ne bougent pas.
 - **Surveillance légère** : liste des fenêtres 1×/s via FFI (quelques
   millisecondes), suivi de la seule fenêtre sous le singe 20×/s (3 appels
   système), inactivité utilisateur toutes les 5 s.
@@ -398,6 +437,8 @@ Pour réduire encore : baissez `fpsCalm` / `fpsSleep`, désactivez `antialias` o
 | Il ne grimpe jamais sur les fenêtres | Option cochée dans le menu ? Il faut des fenêtres non maximisées, avec un bord supérieur visible, assez larges, et à une bonne hauteur au-dessus de la barre des tâches. `weights.climb` règle la fréquence. |
 | Il ne change pas d'écran à pied | Les écrans doivent être côte à côte (bord à bord) dans *Paramètres → Affichage*, et la barre des tâches ne doit pas être sur le bord commun. Glisser-déposer ou *Rappeler le singe ici* fonctionnent dans tous les cas. |
 | Antivirus / SmartScreen bloque l'exe | Exécutable non signé : voir [Générer un exécutable](#générer-un-exécutable-exe--app). |
+| Il déplace mes fenêtres / m'ouvre des notes | C'est qu'il est fâché : donnez-lui la banane qui traîne ! Ou décochez *déplacer vos fenêtres* / *ouvrir des notes* (ou *Des bananes tombent du ciel*) dans le menu **Jeu**. |
+| Il ne bouscule jamais de fenêtre | Il faut l'option *Grimper sur les fenêtres*, une fenêtre non agrandie où il peut monter, et Windows refuse qu'une appli normale déplace les fenêtres lancées « en tant qu'administrateur ». |
 | `npm install` échoue sur koffi | C'est une dépendance optionnelle : l'appli marche quand même, sans le bonus des fenêtres. |
 
 Limites connues : sous Linux, les fenêtres transparentes ne transmettent pas les

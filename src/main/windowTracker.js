@@ -1,8 +1,9 @@
 // =============================================================================
 //  windowTracker.js : liste des fenêtres ouvertes (Windows uniquement).
 //
-//  Sert au bonus "grimper / s'asseoir sur le bord des fenêtres" et à la
-//  détection des applications en plein écran. Utilise koffi (FFI) pour appeler
+//  Sert au bonus "grimper / s'asseoir sur le bord des fenêtres", à la
+//  détection des applications en plein écran, et à la bêtise "déplacer une
+//  fenêtre" quand le singe est fâché. Utilise koffi (FFI) pour appeler
 //  directement l'API Win32 (EnumWindows, DwmGetWindowAttribute...), sans
 //  compilation native ni processus PowerShell coûteux.
 //
@@ -25,6 +26,9 @@ const WS_EX_TOOLWINDOW = 0x80;
 const WS_EX_APPWINDOW = 0x40000;
 const DWMWA_EXTENDED_FRAME_BOUNDS = 9;
 const DWMWA_CLOAKED = 14;
+// SetWindowPos : ne pas redimensionner, ne pas changer l'ordre, ne pas activer,
+// et ne pas attendre l'appli (si elle est figée, on ne bloque pas).
+const SWP_FLAGS = 0x0001 | 0x0004 | 0x0010 | 0x0200 | 0x4000;
 
 // Bureau (fond d'écran) : jamais un rebord, jamais une appli "plein écran".
 const DESKTOP_CLASSES = new Set(['Progman', 'WorkerW']);
@@ -60,6 +64,9 @@ function loadWin32() {
     GetClassNameW: user32.func('int __stdcall GetClassNameW(HWND hwnd, void *buffer, int maxCount)'),
     GetWindowLongW: user32.func('int32 __stdcall GetWindowLongW(HWND hwnd, int index)'),
     GetForegroundWindow: user32.func('HWND __stdcall GetForegroundWindow()'),
+    SetWindowPos: user32.func(
+      'int __stdcall SetWindowPos(HWND hwnd, HWND insertAfter, int x, int y, int cx, int cy, uint32 flags)',
+    ),
     DwmGetRect: dwmapi.func('__stdcall', 'DwmGetWindowAttribute', 'int32', [
       HWND,
       'uint32',
@@ -92,7 +99,9 @@ class WindowTracker {
     this.api = loadWin32();
     this.own = readHandle(ownHandleBuffer);
     this.byId = new Map(); // id -> HWND (pour le suivi rapide)
+    this.ledgeIds = new Set(); // "vraies" fenêtres d'applications du dernier balayage
     this.classBuf = Buffer.alloc(512);
+    this.moveTimer = null;
   }
 
   /**
@@ -103,6 +112,7 @@ class WindowTracker {
     const A = this.api;
     const list = [];
     const byId = new Map();
+    const ledgeIds = new Set();
     A.EnumWindows((hwnd) => {
       try {
         if (!A.IsWindowVisible(hwnd) || A.IsIconic(hwnd)) return 1;
@@ -123,12 +133,14 @@ class WindowTracker {
         const id = addr.toString(16);
         list.push({ id, rect: r, ledge });
         byId.set(id, hwnd);
+        if (ledge) ledgeIds.add(id);
       } catch {
         // fenêtre fermée pendant l'énumération : on l'ignore
       }
       return 1;
     }, 0);
     this.byId = byId;
+    this.ledgeIds = ledgeIds;
     return list;
   }
 
@@ -167,6 +179,44 @@ class WindowTracker {
       return rect ? { id, rect } : { id, gone: true };
     } catch {
       return { id, gone: true };
+    }
+  }
+
+  /**
+   * Bêtise : fait glisser une fenêtre de (dx, dy) pixels physiques en `ms`
+   * millisecondes, avec un petit tremblement au départ, sans l'activer.
+   * Seulement une "vraie" fenêtre d'application repérée au dernier balayage,
+   * jamais une fenêtre agrandie ou réduite. Retourne true si c'est parti.
+   */
+  moveBy(id, dx, dy, ms = 900) {
+    const A = this.api;
+    const hwnd = this.byId.get(id);
+    if (!hwnd || !this.ledgeIds.has(id)) return false;
+    try {
+      if (!A.IsWindow(hwnd) || A.IsIconic(hwnd) || A.IsZoomed(hwnd)) return false;
+      const r = {};
+      if (!A.GetWindowRect(hwnd, r)) return false;
+      clearInterval(this.moveTimer);
+      const t0 = Date.now();
+      const step = () => {
+        let t = Math.min(1, (Date.now() - t0) / ms);
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // accélère puis freine
+        const shake = t < 0.25 ? Math.sin(t * 90) * 6 * (1 - t / 0.25) : 0; // il prend son élan
+        try {
+          A.SetWindowPos(hwnd, null, Math.round(r.left + dx * e + shake), Math.round(r.top + dy * e), 0, 0, SWP_FLAGS);
+        } catch {
+          t = 1; // fenêtre fermée entre-temps
+        }
+        if (t >= 1) {
+          clearInterval(this.moveTimer);
+          this.moveTimer = null;
+        }
+      };
+      this.moveTimer = setInterval(step, 16);
+      step();
+      return true;
+    } catch {
+      return false;
     }
   }
 

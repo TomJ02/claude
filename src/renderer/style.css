@@ -87,3 +87,52 @@ body.dragging {
     -1px -1px 0 #2b3a67;
   will-change: transform, opacity;
 }
+
+body.hover-poop {
+  cursor: pointer;
+}
+
+/* Objets à l'écran : cacas (derrière le singe) et bananes (devant) */
+.items {
+  position: absolute;
+  inset: 0;
+}
+.item {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+.item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Repli si les images 3D n'ont pas pu être créées */
+.item[data-emoji]:not([data-emoji=''])::after {
+  content: attr(data-emoji);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1;
+}
+.stink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(120, 140, 70, 0.9);
+  font:
+    700 0.5em/1 system-ui,
+    sans-serif;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.6);
+}
+.sparkle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -30%);
+  font-size: 0.8em;
+}

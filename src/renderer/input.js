@@ -2,7 +2,8 @@
 //  input.js : souris (survol, clic, glisser-déposer, caresses).
 //
 //  Clics "traversants" : la fenêtre ignore la souris (les clics vont aux
-//  fenêtres en dessous) SAUF quand le curseur est sur le singe. Electron nous
+//  fenêtres en dessous) SAUF quand le curseur est sur le singe ou sur un objet
+//  (caca à nettoyer, banane à attraper). Electron nous
 //  transmet quand même les mouvements de souris (option `forward`), ce qui
 //  permet de détecter le survol par un lancer de rayon sur le modèle 3D.
 // =============================================================================
@@ -10,8 +11,9 @@
 const HOVER_RECHECK = 0.1; // s : re-test du survol quand c'est le singe qui bouge
 
 export class Input {
-  constructor({ stage, brain, world, api, config, wake }) {
+  constructor({ stage, brain, world, items, api, config, wake }) {
     this.stage = stage;
+    this.items = items;
     this.brain = brain;
     this.world = world;
     this.api = api;
@@ -19,9 +21,10 @@ export class Input {
     this.wake = wake;
 
     this.cursor = null; // dernière position connue du curseur
-    this.hovering = false;
+    this.hovering = false; // curseur sur le singe
+    this.hoverItem = null; // curseur sur un objet (caca, banane)
     this.ignoring = true; // état actuel du "click-through"
-    this.press = null; // appui en cours sur le singe
+    this.press = null; // appui en cours sur le singe (ou sur une banane : press.item)
     this.dragging = false;
     this.samples = []; // positions récentes (vitesse du lancer)
     this.pet = []; // distances parcourues sur le singe (caresses)
@@ -47,6 +50,11 @@ export class Input {
     if (this.press) {
       if (e.buttons === 0) return this.onUp(e); // relâchement manqué
       this.samples.push({ t: performance.now(), x: p.x, y: p.y });
+      if (this.press.item) {
+        this.items.dragTo(this.press.item, p);
+        this.wake();
+        return;
+      }
       if (!this.dragging && Math.hypot(p.x - this.press.x, p.y - this.press.y) > this.cfg.dragThreshold) {
         this.beginDrag(p);
       }
@@ -78,10 +86,30 @@ export class Input {
   }
 
   onDown(e) {
-    if (e.button !== 0 || !this.stage.hitTest(e.clientX, e.clientY)) return;
+    if (e.button !== 0) return;
+    const p = { x: e.clientX, y: e.clientY };
+    const item = this.items.hitTest(p.x, p.y);
+    if (!item && !this.stage.hitTest(p.x, p.y)) return;
     e.preventDefault();
-    this.press = { x: e.clientX, y: e.clientY, t: performance.now() };
-    this.samples = [{ t: this.press.t, x: e.clientX, y: e.clientY }];
+    this.setIgnore(false);
+
+    // Clic sur un caca : on le nettoie tout de suite.
+    if (item?.kind === 'poop') {
+      this.items.clean(item);
+      this.brain.onPoopCleaned(item);
+      this.cursor = p;
+      this.updateHover();
+      this.wake();
+      return;
+    }
+
+    this.press = { x: p.x, y: p.y, t: performance.now(), item };
+    this.samples = [{ t: this.press.t, x: p.x, y: p.y }];
+    if (item) {
+      // On attrape une banane
+      this.items.grab(item, p);
+      document.body.classList.add('dragging');
+    }
     try {
       document.body.setPointerCapture(e.pointerId);
     } catch {
@@ -93,6 +121,7 @@ export class Input {
 
   onUp(e, cancelled = false) {
     if (!this.press) return;
+    if (this.press.item) return this.dropBanana(e);
     const duration = (performance.now() - this.press.t) / 1000;
     const wasDragging = this.dragging;
     this.press = null;
@@ -115,6 +144,26 @@ export class Input {
     this.wake();
   }
 
+  // Banane lâchée : sur le singe (ou tout près) = donnée, sinon elle retombe.
+  dropBanana(e) {
+    const it = this.press.item;
+    const p = { x: e.clientX, y: e.clientY };
+    const v = this.velocity();
+    this.press = null;
+    document.body.classList.remove('dragging');
+    try {
+      document.body.releasePointerCapture(e.pointerId);
+    } catch {
+      /* pas grave */
+    }
+    const onMonkey = this.stage.hitTest(p.x, p.y) || this.brain.isNear(p);
+    if (onMonkey && this.brain.feed()) this.items.consume(it);
+    else this.items.release(it, v.vx, v.vy);
+    this.cursor = p;
+    this.updateHover();
+    this.wake();
+  }
+
   onLeave() {
     if (this.press) return;
     this.cursor = null;
@@ -132,7 +181,12 @@ export class Input {
   // Appelé à chaque image.
   update(dt) {
     // Appui long sans bouger : on le soulève quand même.
-    if (this.press && !this.dragging && (performance.now() - this.press.t) / 1000 > this.cfg.clickMaxDuration) {
+    if (
+      this.press &&
+      !this.press.item &&
+      !this.dragging &&
+      (performance.now() - this.press.t) / 1000 > this.cfg.clickMaxDuration
+    ) {
       this.beginDrag(this.cursor ?? this.press);
     }
     // Le singe bouge sous un curseur immobile : on re-teste le survol.
@@ -144,12 +198,14 @@ export class Input {
   }
 
   updateHover() {
-    const hit = !!this.cursor && this.stage.hitTest(this.cursor.x, this.cursor.y);
-    if (hit !== this.hovering) {
-      this.hovering = hit;
-      document.body.classList.toggle('hover', hit);
-    }
-    this.setIgnore(!(hit || this.press));
+    const c = this.cursor;
+    const item = c ? this.items.hitTest(c.x, c.y) : null;
+    const hit = !!c && this.stage.hitTest(c.x, c.y);
+    this.hovering = hit;
+    this.hoverItem = item;
+    document.body.classList.toggle('hover', hit || item?.kind === 'banana');
+    document.body.classList.toggle('hover-poop', item?.kind === 'poop');
+    this.setIgnore(!(hit || item || this.press));
   }
 
   setIgnore(ignore) {
@@ -160,10 +216,12 @@ export class Input {
 
   /** Force le mode "click-through" (ex. quand le singe est caché). */
   reset() {
+    if (this.press?.item) this.items.release(this.press.item, 0, 0);
     this.press = null;
     this.dragging = false;
     this.hovering = false;
-    document.body.classList.remove('hover', 'dragging');
+    this.hoverItem = null;
+    document.body.classList.remove('hover', 'hover-poop', 'dragging');
     this.setIgnore(true);
   }
 

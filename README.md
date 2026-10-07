@@ -10,23 +10,59 @@ Et il faut s'en occuper : il fait **caca** (cliquez dessus pour nettoyer) et des
 **bananes** tombent du ciel. Donnez-les-lui, sinon il se fâche et fait des
 bêtises : il **bouscule vos fenêtres** ou vous ouvre des notes **« DONNE BANANES !! »**.
 
+**Un seul petit fichier `.exe` (~3,6 Mo), rien à installer.**
+→ [Télécharger Singe-de-bureau.exe](https://github.com/TomJ02/claude/releases/latest/download/Singe-de-bureau.exe)
+
 ![Aperçu des animations](docs/apercu.png)
 
 ---
 
 ## Sommaire
 
-1. [Fonctionnalités](#fonctionnalités)
-2. [Installation et lancement (pas à pas)](#installation-et-lancement-pas-à-pas)
+1. [Télécharger et lancer](#télécharger-et-lancer)
+2. [Fonctionnalités](#fonctionnalités)
 3. [Utilisation](#utilisation)
 4. [Le jeu : caca, bananes et bêtises](#le-jeu--caca-bananes-et-bêtises)
-5. [Générer un exécutable (.exe / .app)](#générer-un-exécutable-exe--app)
-6. [Personnaliser](#personnaliser)
-7. [Remplacer le modèle 3D par un fichier .glb](#remplacer-le-modèle-3d-par-un-fichier-glb)
-8. [Architecture du code](#architecture-du-code)
-9. [Choix techniques](#choix-techniques)
-10. [Performances](#performances)
-11. [Dépannage](#dépannage)
+5. [Compiler depuis le code source](#compiler-depuis-le-code-source)
+6. [Générer l'exécutable (.exe)](#générer-lexécutable-exe)
+7. [Personnaliser](#personnaliser)
+8. [Remplacer le modèle 3D par un fichier .glb](#remplacer-le-modèle-3d-par-un-fichier-glb)
+9. [Architecture du code](#architecture-du-code)
+10. [Choix techniques](#choix-techniques)
+11. [Performances](#performances)
+12. [Dépannage](#dépannage)
+
+---
+
+## Télécharger et lancer
+
+1. Téléchargez **[Singe-de-bureau.exe](https://github.com/TomJ02/claude/releases/latest/download/Singe-de-bureau.exe)**
+   (~3,6 Mo), depuis la page [Releases](https://github.com/TomJ02/claude/releases/latest).
+2. Double-cliquez dessus. C'est tout : c'est une **version portable**, rien n'est
+   installé. Rangez-le où vous voulez (Bureau, Documents…).
+3. Le singe tombe du haut de l'écran, atterrit sur la barre des tâches et vous fait
+   coucou. Son icône apparaît dans la zone de notification (près de l'horloge,
+   parfois dans le menu « ^ » des icônes cachées) : un clic dessus ouvre le menu.
+
+> **« Windows a protégé votre ordinateur »** : l'exécutable n'est pas signé
+> numériquement (un certificat coûte cher). Cliquez sur **Informations
+> complémentaires → Exécuter quand même**. Une seule fois.
+
+Vous préférez une vraie installation (raccourci dans le menu Démarrer,
+désinstallation depuis *Paramètres → Applications*) ? Prenez plutôt
+`Singe-de-bureau-2.0.0-installation.exe` (~1,4 Mo) sur la même page. Il
+s'installe pour votre compte seulement, sans droits administrateur.
+
+Pour qu'il démarre avec Windows : menu de l'icône → **Lancer au démarrage**.
+
+**Configuration requise** : Windows 10 ou 11 (64 bits). L'appli utilise
+*WebView2*, le moteur web d'Edge déjà présent dans Windows 11 et dans tout
+Windows 10 à jour (sinon l'installateur le télécharge tout seul).
+
+Chaque version est compilée et **testée automatiquement sur une vraie machine
+Windows** par GitHub Actions (voir [`.github/workflows/windows.yml`](.github/workflows/windows.yml)) :
+affichage 3D, banane, caca, survol du singe à la souris, déplacement d'une
+fenêtre du Bloc-notes, note « DONNE BANANES !! », installation silencieuse.
 
 ---
 
@@ -44,70 +80,8 @@ bêtises : il **bouscule vos fenêtres** ou vous ouvre des notes **« DONNE BANA
 | **Interactions** | Clic : il saute ou fait coucou · Glisser-déposer : il pend et se balance, puis retombe avec la gravité (on peut le *lancer*) · Appui long : on le soulève · Caresse (aller-retour du curseur sur lui) : il est content · Il tourne la tête vers le curseur et le suit parfois · Clic droit : menu |
 | **Jeu** | Il fait caca (un clic pour nettoyer) · des bananes tombent du ciel : glissez-les jusqu'à lui · ignoré trop longtemps, il se fâche et fait des bêtises (déplace vos fenêtres, ouvre des notes « DONNE BANANES !! ») · tout est désactivable |
 | **Zone de notification** | Pause / Reprendre, Vitesse, Taille, Grimper sur les fenêtres, Se cacher pendant le plein écran, Rappeler le singe ici, Jeu, Lancer au démarrage, Modèle 3D, Quitter |
+| **Léger** | Un seul exécutable de ~3,6 Mo, sans installation ; ~0,3 % de processeur en moyenne (mesuré) |
 | **Discrétion** | Se cache automatiquement quand une application est en plein écran (vidéo, jeu, présentation) et quand la session est verrouillée |
-
----
-
-## Installation et lancement (pas à pas)
-
-### 1. Prérequis (une seule fois)
-
-1. **Node.js 22 LTS ou plus récent** (Electron 44 exige Node ≥ 22.12) :
-   téléchargez l'installateur « LTS » sur <https://nodejs.org> et installez-le
-   avec les options par défaut.
-2. Vérifiez dans un terminal (*Windows Terminal* ou *PowerShell*) :
-   ```powershell
-   node --version   # doit afficher v22.12 ou plus
-   npm --version
-   ```
-
-### 2. Récupérer le projet
-
-Avec Git :
-```powershell
-git clone https://github.com/TomJ02/claude.git singe-de-bureau
-cd singe-de-bureau
-```
-Ou téléchargez le ZIP depuis GitHub (« Code » → « Download ZIP »), décompressez-le
-puis ouvrez un terminal dans le dossier.
-
-### 3. Installer les dépendances
-
-```powershell
-npm install
-```
-
-Cela installe Three.js (3D), koffi (accès à l'API Windows pour repérer les
-fenêtres), Electron et electron-builder. Au **premier** lancement, Electron
-télécharge son moteur (~100 Mo) : c'est normal, une seule fois.
-
-### 4. Lancer le singe
-
-```powershell
-npm start
-```
-
-Le singe tombe du haut de l'écran, atterrit sur la barre des tâches et vous fait
-coucou. Son icône apparaît dans la zone de notification (en bas à droite, parfois
-dans le menu « ^ » des icônes cachées).
-
-Mode développeur (ouvre les DevTools, utile pour modifier le code) :
-```powershell
-npm run dev
-```
-Dans la console des DevTools, l'objet `pet` permet de jouer avec lui :
-```js
-pet.brain.go('sleep')            // le forcer à dormir
-pet.brain.go('wave')             // coucou
-pet.brain.go('walk', { target: 300 })  // marcher jusqu'à x = 300 px
-pet.brain.energy = 0.1           // le fatiguer
-pet.config.movement.walkSpeed = 150    // changer un réglage à chaud
-pet.items.spawnBanana()          // faire tomber une banane
-pet.brain.poopTimer = 0          // envie pressante...
-pet.config.game.bananaPatience = 5     // il se fâche après 5 s au lieu de 60
-```
-Après avoir modifié un fichier du dossier `src/renderer/`, appuyez sur **Ctrl+R**
-dans les DevTools pour recharger ; pour `src/main/`, relancez `npm run dev`.
 
 ---
 
@@ -133,10 +107,10 @@ Menu de l'icône de notification (clic gauche ou droit) :
 - **Rappeler le singe ici** : le fait réapparaître près du curseur (pratique en multi-écran).
 - **Jeu (caca, bananes, bêtises)** : active ou non chaque élément du jeu (voir ci-dessous), fait tomber une banane tout de suite, ou nettoie tout le caca d'un coup.
 - **Lancer au démarrage** : démarre avec Windows (session utilisateur).
-- **Modèle 3D** : ouvre le dossier où déposer un `monkey.glb`, ou recharge le singe.
+- **Modèle 3D et réglages** : ouvre le dossier de l'appli (pour y déposer un `monkey.glb` ou un `config.json`), ou recharge le singe.
 - **Quitter**.
 
-Les réglages sont enregistrés dans `%APPDATA%\Singe de bureau\settings.json`.
+Les choix du menu sont enregistrés dans `%APPDATA%\com.singedebureau.app\settings.json`.
 
 ---
 
@@ -161,47 +135,100 @@ Garde-fous :
 
 ---
 
-## Générer un exécutable (.exe / .app)
+## Compiler depuis le code source
 
-Les exécutables se génèrent avec [electron-builder](https://www.electron.build/).
+Seulement si vous voulez modifier le singe : pour l'utiliser, l'exécutable
+[téléchargé](#télécharger-et-lancer) suffit.
 
-### Windows (.exe) — à lancer sur Windows
+### 1. Prérequis (une seule fois)
+
+1. **Node.js 20 LTS ou plus récent** : installateur « LTS » sur <https://nodejs.org>
+   (options par défaut). Il sert à préparer la page 3D (Three.js, esbuild).
+2. **Rust** : téléchargez et lancez `rustup-init.exe` depuis <https://rustup.rs>,
+   options par défaut. S'il le propose, laissez-le installer les **outils de
+   compilation Visual Studio** (« Développement Desktop en C++ » : MSVC et SDK
+   Windows) ; sinon installez-les depuis
+   <https://visualstudio.microsoft.com/fr/visual-cpp-build-tools/>.
+3. Vérifiez dans un terminal (*Windows Terminal* ou *PowerShell*), **ouvert après
+   les installations** :
+   ```powershell
+   node --version    # v20 ou plus
+   cargo --version   # 1.90 ou plus
+   ```
+
+Détails et autres systèmes : <https://v2.tauri.app/start/prerequisites/>.
+
+### 2. Récupérer le projet et ses dépendances
 
 ```powershell
-npm run dist
-```
-
-Résultat dans le dossier `dist\` :
-
-| Fichier | Usage |
-|---|---|
-| `Singe-de-bureau-Setup-1.0.0.exe` | **Installateur** (choix du dossier, raccourcis Bureau et menu Démarrer, désinstallation propre) |
-| `Singe-de-bureau-1.0.0-portable.exe` | **Version portable** : un seul fichier, aucune installation |
-| `win-unpacked\Singe de bureau.exe` | Version décompressée (pour tester rapidement) |
-
-> L'exécutable n'est pas signé numériquement : au premier lancement, Windows
-> SmartScreen peut afficher « Windows a protégé votre PC ». Cliquez sur
-> **Informations complémentaires → Exécuter quand même**. (Pour l'éviter, il faut
-> un certificat de signature de code, voir la doc d'electron-builder.)
-
-Pour tester l'empaquetage sans créer d'installateur : `npm run pack`.
-
-### macOS (.app dans un .dmg) — à lancer sur un Mac
-
-```bash
+git clone https://github.com/TomJ02/claude.git singe-de-bureau
+cd singe-de-bureau
 npm install
-npm run dist:mac
+```
+(Ou « Code » → « Download ZIP » sur GitHub, décompressez, puis `npm install`
+dans le dossier.)
+
+### 3. Lancer en mode développeur
+
+```powershell
+npm run dev
 ```
 
-Résultat : un fichier `.dmg` dans `dist/`, contenant `Singe de bureau.app`
-(sans icône dans le Dock, uniquement dans la barre des menus). Non signée :
-faites **clic droit → Ouvrir** la première fois. Sur macOS, tout fonctionne sauf
-le bonus « grimper sur les fenêtres » et « se cacher en plein écran », qui
-utilisent l'API Windows.
+La **première** compilation prend quelques minutes (Rust compile ses
+bibliothèques une fois pour toutes) ; les suivantes, quelques secondes. Le singe
+apparaît avec la **console de développement** (DevTools) ouverte, où l'objet `pet`
+permet de jouer avec lui :
+```js
+pet.brain.go('sleep')            // le forcer à dormir
+pet.brain.go('wave')             // coucou
+pet.brain.go('walk', { target: 300 })  // marcher jusqu'à x = 300 px
+pet.brain.energy = 0.1           // le fatiguer
+pet.config.movement.walkSpeed = 150    // changer un réglage à chaud
+pet.items.spawnBanana()          // faire tomber une banane
+pet.brain.poopTimer = 0          // envie pressante...
+pet.config.game.bananaPatience = 5     // il se fâche après 5 s au lieu de 60
+```
 
-> Il faut construire chaque version sur son propre système (un `.exe` sous
-> Windows, un `.app` sous macOS) : les dépendances natives (koffi) sont
-> installées pour la plateforme courante par `npm install`.
+Après avoir modifié un fichier de `src/renderer/` : `npm run web -- --dev` (ou
+laissez tourner `npm run web:watch` dans un second terminal), puis menu →
+*Modèle 3D et réglages → Recharger le singe*. Une modification du code Rust
+(`src-tauri/`) relance l'appli automatiquement.
+
+---
+
+## Générer l'exécutable (.exe)
+
+```powershell
+npm run build
+```
+
+| Fichier produit | Usage |
+|---|---|
+| `src-tauri\target\release\singe-de-bureau.exe` | **Version portable** : ce seul fichier suffit (c'est celui de la release, renommé `Singe-de-bureau.exe`) |
+| `src-tauri\target\release\bundle\nsis\Singe de bureau_2.0.0_x64-setup.exe` | **Installateur** (menu Démarrer, désinstallation propre, sans droits administrateur) |
+
+`npm run build:exe` ne fabrique que l'exécutable portable (plus rapide).
+
+L'exécutable est optimisé pour la taille (`[profile.release]` de
+`src-tauri/Cargo.toml` : `opt-level = "s"`, LTO, symboles retirés) et contient
+tout : la page, Three.js, les icônes, et le modèle `assets/models/monkey.glb`
+s'il existe.
+
+**Sans rien installer** : chaque `git push` sur GitHub fabrique et teste l'exe
+(onglet *Actions* → dernier passage → *Artifacts*), et la branche par défaut
+publie la release. Pour une nouvelle version : changez `version` dans
+`src-tauri/tauri.conf.json` (et `package.json`, `Cargo.toml`), puis poussez.
+
+Pour tester l'appli comme le fait l'intégration continue :
+```powershell
+$env:SINGE_SELFTEST = "$PWD\rapport.json"; .\src-tauri\target\release\singe-de-bureau.exe
+```
+Elle joue un scénario (banane, repas, caca, nettoyage, survol par le curseur…),
+écrit `rapport.json` et se ferme. Voir aussi `scripts/ci/selftest.ps1`.
+
+> **macOS / Linux** : le même code compile (`npx tauri build --bundles app` sur
+> un Mac, `--bundles deb` sous Linux), mais le bonus des fenêtres (grimper,
+> bousculer, se cacher en plein écran) n'existe que sous Windows.
 
 ---
 
@@ -216,10 +243,28 @@ Tout est commenté en français. Les fichiers à connaître :
 | Les comportements (ce qu'il décide de faire, quand, comment) | `src/renderer/behaviors.js` |
 | La forme du singe (tête, oreilles, queue…) | `src/renderer/monkey.js` |
 | Les bulles « ! », « ? », « ♥ », « Z z z », l'ombre | `src/renderer/effects.js`, `style.css` |
-| Le menu de notification | `src/main/tray.js`, choix de vitesses/tailles dans `src/main/settings.js` |
+| Le menu de notification | `src-tauri/src/tray.rs`, choix de vitesses/tailles dans `src-tauri/src/settings.rs` |
 | Le jeu : fréquence du caca et des bananes, patience, bêtises | `src/renderer/config.js > game` ; logique dans `behaviors.js` (en bas : `_updateGame`, `mischief`, `feed`) |
 | L'allure de la banane et du caca | `src/renderer/props.js` (objets 3D), `items.js` (comportement à l'écran) |
-| Fréquence de surveillance des fenêtres | constantes en haut de `src/main/main.js` |
+| Fréquence de surveillance des fenêtres et du curseur | constantes en haut de `src-tauri/src/overlay.rs` |
+
+### Sans recompiler : `config.json`
+
+Avec l'exécutable téléchargé, créez un fichier **`config.json`** dans le dossier de
+l'appli (menu → *Modèle 3D et réglages → Ouvrir le dossier…*, soit
+`%APPDATA%\com.singedebureau.app`). Ses valeurs remplacent celles de
+`config.js` (mêmes noms, seulement ce que vous voulez changer), par exemple :
+```json
+{
+  "movement": { "walkSpeed": 120 },
+  "sleep": { "afterUserIdle": 300 },
+  "game": { "bananaPatience": 120 },
+  "colors": { "fur": 14262374 }
+}
+```
+(les couleurs s'écrivent en décimal : `0xd9a066` = `14262374`). Puis menu →
+*Recharger le singe*. Un exemple commenté `config-exemple.json` est créé dans ce
+dossier quand vous l'ouvrez depuis le menu.
 
 ### Exemples dans `config.js`
 
@@ -288,11 +333,13 @@ Les transitions entre animations (fondus) sont automatiques.
 1. Exportez votre modèle au format **glTF binaire (.glb)** depuis Blender, ou
    récupérez-en un (Sketchfab, Mixamo + Blender…).
 2. Nommez-le **`monkey.glb`** et placez-le :
-   - **dans le dossier de données** : menu de l'icône → *Modèle 3D → Ouvrir le
-     dossier du modèle…* (fonctionne aussi avec l'exécutable installé), **ou**
-   - dans `assets/models/` du projet (il sera alors inclus dans l'exécutable).
-3. Menu → *Modèle 3D → Recharger le singe*. Pour revenir au singe intégré,
-   supprimez le fichier.
+   - **dans le dossier de l'appli** : menu de l'icône → *Modèle 3D et réglages →
+     Ouvrir le dossier…* (`%APPDATA%\com.singedebureau.app`, fonctionne avec
+     l'exécutable téléchargé, prioritaire), **ou**
+   - dans `assets/models/` du projet : il sera alors intégré à l'exécutable à la
+     prochaine compilation.
+3. Menu → *Modèle 3D et réglages → Recharger le singe*. Pour revenir au singe
+   intégré, supprimez le fichier.
 
 Contraintes :
 
@@ -325,78 +372,90 @@ Contraintes :
 
 ```
 singe-de-bureau/
-├── package.json              dépendances, scripts, configuration d'electron-builder
-├── assets/                   icônes (générées par `npm run icons`) et modèles/
+├── package.json              scripts (dev, build, web) et dépendances JavaScript
+├── assets/                   grande icône (générée par `npm run icons`) et models/
 ├── scripts/
-│   ├── generate-icons.js     dessine l'icône (PNG/ICO) sans dépendance
-│   └── include-three-addons.js  inclut le chargeur .glb dans l'exécutable
-└── src/
-    ├── preload.js            pont sécurisé page ↔ processus principal (window.petAPI)
-    ├── main/                 PROCESSUS PRINCIPAL (Node.js)
-    │   ├── main.js           fenêtre plein écran transparente, clics traversants,
-    │   │                     multi-écran, surveillance, cycle de vie
-    │   ├── tray.js           icône et menu de notification
-    │   ├── settings.js       réglages persistants
-    │   ├── protocol.js       protocole local app:// pour servir les fichiers
-    │   └── windowTracker.js  liste des fenêtres Windows (API Win32 via koffi)
-    └── renderer/             PAGE (affichage et logique du singe)
-        ├── index.html, style.css
-        ├── renderer.js       point d'entrée, boucle d'animation à cadence variable
-        ├── config.js         ★ tous les réglages
-        ├── behaviors.js      ★ le "cerveau" : machine à états, énergie, physique
-        ├── animations.js     ★ les animations (poses procédurales)
-        ├── monkey.js         le singe 3D construit en primitives Three.js
-        ├── gltfMonkey.js     adaptateur pour un modèle .glb
-        ├── stage.js          scène Three.js, caméra, lancer de rayon
-        ├── world.js          sol, bords d'écran, rebords de fenêtres
-        ├── input.js          souris : survol, clic, glisser, caresse
-        ├── effects.js        ombre, « Z z z », bulles d'émotion
-        ├── items.js          objets à l'écran : cacas et bananes (chute, clic, glisser)
-        ├── props.js          banane et caca en 3D (même style que le singe)
-        ├── sprites.js        transforme ces objets 3D en images au démarrage
-        └── toon.js           matériaux cartoon partagés (paliers, contour, facettes)
+│   ├── build-web.mjs         assemble la page dans dist-web/ (esbuild + Three.js)
+│   ├── generate-icons.js     dessine les icônes (PNG/ICO/ICNS) sans dépendance
+│   └── ci/                   auto-test et mesure de consommation (PowerShell)
+├── .github/workflows/        compilation + tests Windows + release
+├── src-tauri/                PROGRAMME PRINCIPAL (Rust, Tauri 2)
+│   ├── tauri.conf.json       nom, version, icônes, installateur, sécurité de la page
+│   ├── Cargo.toml            dépendances Rust, options de taille de l'exe
+│   ├── icons/                icônes de l'exe et de la zone de notification
+│   └── src/
+│       ├── main.rs           démarrage, plugins (instance unique, démarrage auto)
+│       ├── overlay.rs        fenêtre transparente plein écran, clics traversants,
+│       │                     curseur, multi-écran, surveillance, commandes de la page
+│       ├── system.rs         API Win32 : fenêtres et rebords, déplacer une fenêtre,
+│       │                     inactivité, session verrouillée, premier plan
+│       ├── tray.rs           icône et menu de notification
+│       ├── settings.rs       réglages persistants (settings.json)
+│       ├── pranks.rs         bêtises : bousculer une fenêtre, écrire une note
+│       └── selftest.rs       auto-test (SINGE_SELFTEST)
+└── src/renderer/             PAGE (affichage et logique du singe, dans WebView2)
+    ├── index.html, style.css
+    ├── platform.js           pont page ↔ Rust (commandes et événements Tauri)
+    ├── renderer.js           point d'entrée, boucle d'animation à cadence variable
+    ├── config.js             ★ tous les réglages
+    ├── behaviors.js          ★ le "cerveau" : machine à états, énergie, physique, jeu
+    ├── animations.js         ★ les animations (poses procédurales)
+    ├── monkey.js             le singe 3D construit en primitives Three.js
+    ├── gltfMonkey.js         adaptateur pour un modèle .glb
+    ├── stage.js              scène Three.js, caméra, lancer de rayon
+    ├── world.js              sol, bords d'écran, rebords de fenêtres
+    ├── input.js              souris : survol, clic, glisser, caresse
+    ├── effects.js            ombre, « Z z z », bulles d'émotion
+    ├── items.js              objets à l'écran : cacas et bananes (chute, clic, glisser)
+    ├── props.js              banane et caca en 3D (même style que le singe)
+    ├── sprites.js            transforme ces objets 3D en images au démarrage
+    ├── toon.js               matériaux cartoon partagés (paliers, contour, facettes)
+    └── selftest.js           scénario de l'auto-test
 ```
 
 Fonctionnement en bref :
 
 ```
- ┌──────────── processus principal (main.js) ────────────┐        ┌──────────── page (renderer.js) ────────────┐
- │ fenêtre transparente sur l'écran du singe             │ world  │ behaviors.js  décide (marcher, dormir…)    │
- │ setIgnoreMouseEvents(true, {forward:true})            │──────▶ │ animations.js calcule la pose              │
- │ windowTracker : fenêtres Win32 → rebords (1×/s)        │ ledges │ monkey.js     applique la pose au modèle   │
- │ suivi de la fenêtre sous le singe (20×/s)             │──────▶ │ stage.js      dessine un petit canvas WebGL │
- │ inactivité utilisateur, verrouillage, plein écran     │        │ input.js      survol → "ignore la souris ?" │
- │ zone de notification, réglages                        │ ◀──────│ ignore-mouse / display-at / track-window   │
- └───────────────────────────────────────────────────────┘        └────────────────────────────────────────────┘
+ ┌────────── programme principal (Rust, overlay.rs) ──────────┐        ┌──────────── page (renderer.js) ────────────┐
+ │ fenêtre transparente sur l'écran du singe, toujours devant  │ world  │ behaviors.js  décide (marcher, dormir…)    │
+ │ curseur lu ~60×/s → pet:cursor (seulement s'il a bougé)     │──────▶ │ animations.js calcule la pose              │
+ │ fenêtres Win32 → rebords (1×/s), fenêtre sous le singe 20×/s│ cursor │ monkey.js     applique la pose au modèle   │
+ │ inactivité, session verrouillée, plein écran, écrans        │ ledges │ stage.js      dessine un petit canvas WebGL │
+ │ zone de notification, réglages, bêtises                     │──────▶ │ input.js      curseur sur le singe ?        │
+ │ set_ignore_cursor_events(oui/non)                           │ ◀──────│ set_ignore_mouse / track_window / prank    │
+ └─────────────────────────────────────────────────────────────┘        └────────────────────────────────────────────┘
 ```
+
+La page ne peut appeler que les quelques commandes déclarées dans `main.rs`
+(`generate_handler!`) : pas d'accès aux fichiers, pas de réseau (politique de
+sécurité dans `tauri.conf.json`).
 
 ---
 
 ## Choix techniques
 
-**Electron + Three.js**, comme proposé, est le meilleur compromis ici :
+**Tauri 2 + Three.js** plutôt qu'Electron + Three.js :
 
-- **Clics traversants avec détection du survol** : Electron fournit
-  `setIgnoreMouseEvents(true, { forward: true })`, qui laisse passer les clics
-  tout en continuant à transmettre les mouvements de souris à la page. C'est
-  exactement ce qu'il faut pour savoir quand le curseur passe sur le singe.
-  **Tauri** (plus léger : ~10 Mo au lieu de ~100 Mo) propose
-  `set_ignore_cursor_events`, mais sans cette transmission : il faudrait sonder
-  la position du curseur en Rust et réimplémenter le basculement — plus complexe
-  et plus fragile, pour un gain surtout en taille de fichier.
+| | Electron | **Tauri 2** (choisi) |
+|---|---|---|
+| Exécutable | ~110 Mo à télécharger (embarque tout Chromium) | **~3,6 Mo** (utilise WebView2, déjà dans Windows) |
+| Moteur web | une copie de Chromium dans chaque appli | WebView2, fourni et mis à jour par Windows |
+| API Windows | via une bibliothèque FFI (koffi) | appels Win32 directs (crate `windows`), compilés dans l'exe |
+| Le code du singe | Three.js | **le même**, inchangé |
+
+- La seule vraie difficulté était le **clic traversant avec détection du survol** :
+  Electron sait transmettre les mouvements de souris à une fenêtre qui laisse
+  passer les clics, Tauri non. Le programme Rust lit donc lui-même la position
+  du curseur (~60 fois/s, un appel système de quelques microsecondes) et ne la
+  transmet à la page que si elle change ; la page vérifie par lancer de rayon si
+  le curseur touche le singe et demande à Rust de capter ou de laisser passer
+  la souris. Le résultat est identique, et vérifié automatiquement sur Windows.
 - **Unity / Godot** donneraient de beaux rendus, mais la fenêtre transparente
-  plein écran avec clics traversants y demande du code natif spécifique à
-  Windows, et l'exécutable est bien plus lourd.
+  plein écran avec clics traversants y demande du code natif spécifique, et
+  l'exécutable est bien plus lourd.
 - **Three.js** permet de construire le singe en code (aucun fichier à fournir),
-  de charger un `.glb` standard, et tourne sur le GPU.
-- **koffi** (FFI) appelle directement l'API Win32 (`EnumWindows`,
-  `DwmGetWindowAttribute`) pour le bonus des fenêtres : pas de compilation C++,
-  pas de PowerShell lancé en boucle (très coûteux), binaires précompilés fournis.
-  C'est une dépendance *optionnelle* : sans elle, tout fonctionne sauf ce bonus.
-
-Sécurité : la page n'a pas accès à Node.js (`contextIsolation`, `sandbox`), ne
-charge que des fichiers locaux via un protocole `app://` dédié, et ne communique
-qu'au travers de quelques messages validés.
+  de charger un `.glb` standard, et dessine sur le GPU. esbuild n'en garde que
+  ce qui sert : toute la page fait ~700 Ko.
 
 ---
 
@@ -410,16 +469,26 @@ Objectif : < 5 % de CPU au repos et 60 images/s fluides quand il bouge.
 - **Cadence variable** : 60 i/s quand il bouge, 30 i/s debout/assis (respiration,
   clignements), 20 i/s quand il dort, **0 i/s en pause** (la boucle s'arrête
   totalement et se réveille au moindre événement). Réglable dans `config.js > render`.
-- **Rien n'est dessiné** quand il est caché (plein écran, session verrouillée).
+- **Rien n'est dessiné** quand il est caché (plein écran, session verrouillée : la fenêtre est masquée).
 - **Effets en HTML** (ombre, bulles) animés par la même boucle : pas d'animation
   CSS qui tournerait en permanence.
 - **Bananes et cacas** : dessinés une seule fois en 3D au démarrage, puis affichés
   comme de simples images ; ils ne coûtent rien tant qu'ils ne bougent pas.
-- **Surveillance légère** : liste des fenêtres 1×/s via FFI (quelques
-  millisecondes), suivi de la seule fenêtre sous le singe 20×/s (3 appels
-  système), inactivité utilisateur toutes les 5 s.
+- **Surveillance légère, en Rust** : position du curseur ~60×/s (transmise à la
+  page seulement quand elle change), liste des fenêtres 1×/s (moins d'une
+  milliseconde), suivi de la seule fenêtre sous le singe 20×/s, inactivité
+  utilisateur toutes les 5 s.
+- **Cadence plafonnée** : même sur un écran 120/144 Hz, jamais plus de 60 i/s.
+- **Exécutable léger** : ~3,6 Mo ; le moteur web (WebView2) est celui de
+  Windows, mis à jour avec lui.
 - Rendu `powerPreference: 'low-power'` (GPU intégré sur les PC portables),
   résolution limitée à 2× sur les écrans très denses.
+
+Mesuré automatiquement à chaque compilation, sur une machine Windows **sans
+carte graphique** (la 3D y est donc calculée par le processeur, le cas le plus
+défavorable), pendant 40 s de vie normale : **0,3 % de processeur** au total
+(1,2 % d'un seul cœur) et ~150 Mo de mémoire en tout (appli + moteur WebView2).
+Résultat dans le résumé de chaque passage de l'onglet *Actions*.
 
 Pour réduire encore : baissez `fpsCalm` / `fpsSleep`, désactivez `antialias` ou
 `outline` dans `config.js`, ou décochez « Grimper sur les fenêtres ».
@@ -430,18 +499,20 @@ Pour réduire encore : baissez `fpsCalm` / `fpsSleep`, désactivez `antialias` o
 
 | Problème | Solution |
 |---|---|
-| Le singe n'apparaît pas | Regardez dans la zone de notification (« ^ ») si l'icône est là ; utilisez *Rappeler le singe ici*. Lancez `npm run dev` pour voir les erreurs dans la console. Vérifiez qu'aucune appli n'est en plein écran (il se cache alors). |
+| Le singe n'apparaît pas | Regardez dans la zone de notification (« ^ ») si l'icône est là ; utilisez *Rappeler le singe ici*. Vérifiez qu'aucune appli n'est en plein écran (il se cache alors). Si l'appli refuse de démarrer, installez le [runtime WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) (« Evergreen Bootstrapper »). Depuis les sources, `npm run dev` affiche les erreurs. |
 | Fond noir au lieu de transparent | Pilote graphique ancien ou accélération matérielle désactivée : mettez à jour le pilote GPU. |
 | Je ne peux plus cliquer sur une zone de l'écran | Survolez puis quittez le singe avec la souris (cela rebascule le mode "clics traversants"), ou mettez-le en pause. Signalez le cas : ça ne devrait pas arriver. |
 | CPU élevé | Vérifiez que l'accélération GPU fonctionne (sinon le rendu se fait sur le processeur) ; réduisez les fps dans `config.js`. |
 | Il ne grimpe jamais sur les fenêtres | Option cochée dans le menu ? Il faut des fenêtres non maximisées, avec un bord supérieur visible, assez larges, et à une bonne hauteur au-dessus de la barre des tâches. `weights.climb` règle la fréquence. |
 | Il ne change pas d'écran à pied | Les écrans doivent être côte à côte (bord à bord) dans *Paramètres → Affichage*, et la barre des tâches ne doit pas être sur le bord commun. Glisser-déposer ou *Rappeler le singe ici* fonctionnent dans tous les cas. |
-| Antivirus / SmartScreen bloque l'exe | Exécutable non signé : voir [Générer un exécutable](#générer-un-exécutable-exe--app). |
+| Antivirus / SmartScreen bloque l'exe | Exécutable non signé : *Informations complémentaires → Exécuter quand même* (voir [Télécharger et lancer](#télécharger-et-lancer)). |
 | Il déplace mes fenêtres / m'ouvre des notes | C'est qu'il est fâché : donnez-lui la banane qui traîne ! Ou décochez *déplacer vos fenêtres* / *ouvrir des notes* (ou *Des bananes tombent du ciel*) dans le menu **Jeu**. |
 | Il ne bouscule jamais de fenêtre | Il faut l'option *Grimper sur les fenêtres*, une fenêtre non agrandie où il peut monter, et Windows refuse qu'une appli normale déplace les fenêtres lancées « en tant qu'administrateur ». |
-| `npm install` échoue sur koffi | C'est une dépendance optionnelle : l'appli marche quand même, sans le bonus des fenêtres. |
+| `npm run dev` / `npm run build` échoue : « linker `link.exe` not found » | Il manque les outils de compilation Visual Studio (« Développement Desktop en C++ ») : voir [Prérequis](#1-prérequis-une-seule-fois). Rouvrez le terminal après l'installation. |
 
-Limites connues : sous Linux, les fenêtres transparentes ne transmettent pas les
-mouvements de souris quand elles laissent passer les clics (on ne peut donc pas
-attraper le singe) ; écrans aux DPI différents : Electron/Windows peuvent décaler
-légèrement la position lors du passage d'un écran à l'autre.
+Pour repartir de zéro : quittez l'appli et supprimez le dossier
+`%APPDATA%\com.singedebureau.app` (réglages, modèle, config.json).
+
+Limites connues : écrans aux échelles différentes (100 % / 150 %) : le passage
+d'un écran à l'autre peut décaler le singe de quelques pixels. Sous Linux et
+macOS, pas de bonus des fenêtres.

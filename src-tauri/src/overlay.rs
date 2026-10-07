@@ -344,6 +344,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let own = 0;
     pet(app).own = own;
     tracker(app).set_own(own);
+    system::hide_from_alt_tab(own);
     let _ = win.show();
     // Après show() : sous Linux la fenêtre doit exister pour laisser passer les clics.
     let _ = win.set_ignore_cursor_events(true);

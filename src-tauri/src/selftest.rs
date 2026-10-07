@@ -65,6 +65,12 @@ pub fn on_report(app: &AppHandle, renderer: Value) {
                     "hover".into(),
                     json!({ "ignoringBefore": before, "ignoringOverMonkey": over, "ignoringAway": away }),
                 );
+                // Après plusieurs bascules de styles : toujours hors d'Alt+Tab ?
+                let own = overlay::pet(&app).own;
+                r.insert(
+                    "hiddenFromAltTab".into(),
+                    json!(system::hidden_from_alt_tab(own)),
+                );
             }
         }
 

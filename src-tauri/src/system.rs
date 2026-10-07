@@ -100,7 +100,7 @@ mod win {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
     use windows::core::BOOL;
-    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
     use windows::Win32::Graphics::Dwm::{
         DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS,
     };
@@ -109,12 +109,13 @@ mod win {
     };
     use windows::Win32::System::SystemInformation::GetTickCount;
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+    use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowLongW, GetWindowRect,
-        GetWindowTextLengthW, IsIconic, IsWindow, IsWindowVisible, IsZoomed, SetWindowPos,
-        GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
-        WS_EX_TRANSPARENT,
+        GetWindowTextLengthW, IsIconic, IsWindow, IsWindowVisible, IsZoomed, SetWindowLongW,
+        SetWindowPos, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST, STYLESTRUCT, SWP_ASYNCWINDOWPOS,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WM_STYLECHANGING,
+        WS_CAPTION, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
     };
 
     /// Bureau (fond d'écran) : jamais un rebord, jamais une appli plein écran.
@@ -360,6 +361,42 @@ mod win {
         }
     }
 
+    /// Retire notre fenêtre de la liste Alt+Tab (style "fenêtre outil").
+    /// Tao réécrit les styles étendus à chaque bascule des clics traversants :
+    /// on intercepte donc chaque changement de style pour y remettre ce bit.
+    /// À appeler depuis le fil principal (celui qui a créé la fenêtre).
+    pub fn hide_from_alt_tab(own: isize) {
+        unsafe extern "system" fn keep_tool_window(
+            h: HWND,
+            msg: u32,
+            wp: WPARAM,
+            lp: LPARAM,
+            _id: usize,
+            _data: usize,
+        ) -> LRESULT {
+            if msg == WM_STYLECHANGING && wp.0 as i32 == GWL_EXSTYLE.0 {
+                let change = unsafe { &mut *(lp.0 as *mut STYLESTRUCT) };
+                change.styleNew = (change.styleNew | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0;
+            }
+            unsafe { DefSubclassProc(h, msg, wp, lp) }
+        }
+        if own == 0 {
+            return;
+        }
+        let h = hwnd(own);
+        unsafe {
+            let _ = SetWindowSubclass(h, Some(keep_tool_window), 0x5149_4E47, 0);
+            let ex = GetWindowLongW(h, GWL_EXSTYLE);
+            SetWindowLongW(h, GWL_EXSTYLE, ex | WS_EX_TOOLWINDOW.0 as i32);
+        }
+    }
+
+    /// Notre fenêtre est-elle bien absente d'Alt+Tab ? (auto-test)
+    pub fn hidden_from_alt_tab(own: isize) -> Option<bool> {
+        let ex = unsafe { GetWindowLongW(hwnd(own), GWL_EXSTYLE) } as u32;
+        Some(ex & WS_EX_TOOLWINDOW.0 != 0 && ex & WS_EX_APPWINDOW.0 == 0)
+    }
+
     /// Secondes depuis la dernière action au clavier ou à la souris.
     pub fn user_idle_seconds() -> u64 {
         let mut info = LASTINPUTINFO {
@@ -460,6 +497,12 @@ mod other {
     }
 
     pub fn bring_to_top(_own: isize) {}
+
+    pub fn hide_from_alt_tab(_own: isize) {}
+
+    pub fn hidden_from_alt_tab(_own: isize) -> Option<bool> {
+        None
+    }
 
     pub fn user_idle_seconds() -> u64 {
         0

@@ -101,8 +101,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v$VERSION"
-          exe=$(du -m dist/Singe-de-bureau.exe | cut -f1)
-          setup=$(du -m dist/*-installation.exe | cut -f1)
+          mo() { awk -v b="$(stat -c %s "$1")" 'BEGIN { printf "%.1f", b / 1048576 }' | tr . ,; }
+          exe=$(mo dist/Singe-de-bureau.exe)
+          setup=$(mo dist/*-installation.exe)
           cat > notes.md <<EOF
           Un petit singe 3D qui vit sur votre bureau Windows 10/11.
 
